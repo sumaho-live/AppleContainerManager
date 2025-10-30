@@ -10,8 +10,8 @@ export class ContainerTreeItem extends vscode.TreeItem {
     super(label, vscode.TreeItemCollapsibleState.None);
 
     const statusLabel = container.status?.trim().length ? container.status : 'Unknown';
-    const detailParts = [statusLabel, container.image].filter(Boolean);
-    this.description = detailParts.join(' · ');
+    const detailParts = [container.image].filter(Boolean);
+    this.description = detailParts.length > 0 ? detailParts.join(' · ') : undefined;
     this.tooltip = container.id === 'empty-containers'
       ? 'No containers detected from Apple container CLI'
       : this.buildTooltip(container);
@@ -26,15 +26,17 @@ export class ContainerTreeItem extends vscode.TreeItem {
     const normalizedStatus = statusLabel.toLowerCase();
     const isRunning = normalizedStatus.startsWith('running') || normalizedStatus === 'up';
     this.contextValue = isRunning ? 'container-running' : 'container-stopped';
-    this.iconPath = isRunning ? new vscode.ThemeIcon('play-circle') : new vscode.ThemeIcon('circle-slash');
+    this.iconPath = isRunning ? new vscode.ThemeIcon('debug-start') : new vscode.ThemeIcon('debug-stop');
   }
 
   private buildTooltip(container: ContainerSummary): string {
     const lines = [
       `Image: ${container.image}`,
       container.status ? `State: ${container.status}` : undefined,
-      container.address ? `Address: ${container.address}` : undefined,
+      container.ipAddress ? `IP Address: ${container.ipAddress}` : undefined,
+      container.address ? `Network: ${container.address}` : undefined,
       container.ports ? `Ports: ${container.ports}` : undefined,
+      container.volumes ? `Volumes: ${container.volumes}` : undefined,
       container.cpus ? `CPUs: ${container.cpus}` : undefined,
       container.memory ? `Memory: ${container.memory}` : undefined,
       container.os ? `OS: ${container.os}` : undefined,

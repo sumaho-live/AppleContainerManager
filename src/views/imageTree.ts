@@ -6,7 +6,8 @@ import { log, logError } from '../core/logger';
 
 export class ImageTreeItem extends vscode.TreeItem {
   constructor(public readonly image: ImageSummary) {
-    super(`${image.repository}:${image.tag}`, vscode.TreeItemCollapsibleState.None);
+    const label = image.repository?.trim().length ? image.repository : 'Unknown image';
+    super(label, vscode.TreeItemCollapsibleState.None);
 
     if (image.id === 'empty-images') {
       this.label = 'No images found';
@@ -16,11 +17,10 @@ export class ImageTreeItem extends vscode.TreeItem {
       return;
     }
 
-    const descriptor = [image.tag, image.size].filter(Boolean).join(' · ');
-    this.description = descriptor.length > 0 ? descriptor : undefined;
+    this.description = undefined;
     const lines = [
       `Repository: ${image.repository}`,
-      `Tag: ${image.tag}`,
+      image.tag ? `Version: ${image.tag}` : undefined,
       `Image ID: ${image.id}`,
       image.digest ? `Digest: ${image.digest}` : undefined,
       image.size ? `Size: ${image.size}` : undefined,

@@ -1,0 +1,98 @@
+[
+    {
+        "status": "running",
+        "configuration": {
+            "id": "dev14",
+            "networks": [
+                {
+                    "network": "default",
+                    "options": {
+                        "hostname": "dev14"
+                    }
+                }
+            ],
+            "sysctls": {},
+            "runtimeHandler": "container-runtime-linux",
+            "dns": {
+                "nameservers": [],
+                "options": [],
+                "searchDomains": []
+            },
+            "virtualization": false,
+            "resources": {
+                "cpus": 4,
+                "memoryInBytes": 1073741824
+            },
+            "rosetta": false,
+            "ssh": false,
+            "publishedPorts": [
+                {
+                    "proto": "tcp",
+                    "hostAddress": "0.0.0.0",
+                    "hostPort": 8022,
+                    "containerPort": 22
+                }
+            ],
+            "labels": {},
+            "mounts": [
+                {
+                    "type": {
+                        "virtiofs": {}
+                    },
+                    "source": "\/Users\/weichen\/Projects\/lzg\/site-admin\/",
+                    "destination": "\/workspace",
+                    "options": []
+                }
+            ],
+            "platform": {
+                "os": "linux",
+                "architecture": "arm64"
+            },
+            "image": {
+                "descriptor": {
+                    "mediaType": "application\/vnd.oci.image.index.v1+json",
+                    "size": 375,
+                    "digest": "sha256:2e4aa8c033665f6650aaa74a1d2b5f2391898f32be875cc6e8c0a3608880b77a",
+                    "annotations": {
+                        "org.opencontainers.image.ref.name": "latest",
+                        "com.apple.containerization.image.name": "dev\/node14:latest",
+                        "io.containerd.image.name": "docker.io\/dev\/node14:latest",
+                        "org.opencontainers.image.created": "2025-10-26T04:18:56Z"
+                    }
+                },
+                "reference": "dev\/node14:latest"
+            },
+            "initProcess": {
+                "executable": "docker-entrypoint.sh",
+                "user": {
+                    "id": {
+                        "gid": 0,
+                        "uid": 0
+                    }
+                },
+                "terminal": false,
+                "environment": [
+                    "PATH=\/usr\/local\/sbin:\/usr\/local\/bin:\/usr\/sbin:\/usr\/bin:\/sbin:\/bin",
+                    "NODE_VERSION=14.21.3",
+                    "YARN_VERSION=1.22.19"
+                ],
+                "arguments": [
+                    "\/usr\/sbin\/sshd",
+                    "-D"
+                ],
+                "rlimits": [],
+                "workingDirectory": "\/",
+                "supplementalGroups": []
+            },
+            "publishedSockets": []
+        },
+        "networks": [
+            {
+                "network": "default",
+                "address": "192.168.65.2\/24",
+                "hostname": "dev14",
+                "gateway": "192.168.65.1"
+            }
+        ]
+    }
+]

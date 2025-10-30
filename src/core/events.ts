@@ -3,8 +3,16 @@ import { EventEmitter } from 'node:events';
 import { AppleContainerError } from './errors';
 import { ContainerSummary, ImageSummary } from '../cli/containerCli';
 
+export interface SystemStatusPayload {
+  running: boolean;
+  localVersion?: string;
+  latestVersion?: string;
+  latestUrl?: string;
+  updateAvailable?: boolean;
+}
+
 export type AppEventMap = {
-  'system:status': { running: boolean; version?: string };
+  'system:status': SystemStatusPayload;
   'data:containers': ContainerSummary[];
   'data:images': ImageSummary[];
   error: AppleContainerError;

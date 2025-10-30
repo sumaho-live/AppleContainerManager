@@ -15,10 +15,12 @@ export interface ContainerSummary {
   image: string;
   status: string;
   ports?: string;
+  ipAddress?: string;
   createdAt?: string;
   os?: string;
   arch?: string;
   address?: string;
+  volumes?: string;
   cpus?: string;
   memory?: string;
 }
@@ -131,16 +133,19 @@ export class ContainerCli {
         }
 
         const parsed = this.safeJsonParse<unknown>(stdout);
-        const records = this.normalizeJsonRecords(parsed, 'containers');
-        if (records) {
-          const containers = records.map((item, index) => this.mapContainerRecord(item, index));
-          log(`Parsed ${containers.length} containers from JSON output`);
-          return containers;
+        if (!parsed) {
+          log('listContainers JSON parse failed; trying next command variant');
+          continue;
         }
 
-        log('JSON parse failed for container list; attempting table parse');
-        const containers = this.parseContainerTable(stdout);
-        log(`Parsed ${containers.length} containers from table output`);
+        const records = this.normalizeJsonRecords(parsed, 'containers');
+        if (!records) {
+          log('listContainers JSON payload missing container array; trying next command variant');
+          continue;
+        }
+
+        const containers = records.map((item, index) => this.mapContainerRecord(item, index));
+        log(`Parsed ${containers.length} containers from JSON output`);
         return containers;
       } catch (error) {
         lastError = error;
@@ -175,16 +180,19 @@ export class ContainerCli {
         }
 
         const parsed = this.safeJsonParse<unknown>(stdout);
-        const records = this.normalizeJsonRecords(parsed, 'images');
-        if (records) {
-          const images = records.map((item, index) => this.mapImageRecord(item, index));
-          log(`Parsed ${images.length} images from JSON output`);
-          return images;
+        if (!parsed) {
+          log('listImages JSON parse failed; trying next command variant');
+          continue;
         }
 
-        log('JSON parse failed for image list; attempting table parse');
-        const images = this.parseImageTable(stdout);
-        log(`Parsed ${images.length} images from table output`);
+        const records = this.normalizeJsonRecords(parsed, 'images');
+        if (!records) {
+          log('listImages JSON payload missing image array; trying next command variant');
+          continue;
+        }
+
+        const images = records.map((item, index) => this.mapImageRecord(item, index));
+        log(`Parsed ${images.length} images from JSON output`);
         return images;
       } catch (error) {
         lastError = error;
@@ -286,122 +294,6 @@ export class ContainerCli {
     return ndjson as T;
   }
 
-  private parseContainerTable(stdout: string): ContainerSummary[] {
-    const rows = this.parseTable(stdout);
-    if (rows.length === 0) {
-      return [];
-    }
-
-    return rows.map((row, index) => ({
-      id: this.getRowValue(row, ['CONTAINER ID', 'CONTAINERID', 'ID', 'Name', 'NAME', 'NAMES']) ?? `container-${index}`,
-      name: this.getRowValue(row, ['NAME', 'NAMES', 'CONTAINER NAME', 'CONTAINERNAME', 'DISPLAY NAME', 'CONTAINER ID', 'ID']) ?? `container-${index}`,
-      image: this.getRowValue(row, ['IMAGE', 'IMAGE NAME', 'REPOSITORY', 'REF', 'REFERENCE']) ?? 'unknown',
-      status: this.getRowValue(row, ['STATUS', 'STATE']) ?? 'unknown',
-      ports: this.getRowValue(row, ['PORTS', 'PORT', 'PORT(S)']),
-      createdAt: this.getRowValue(row, ['CREATED', 'CREATED AT', 'CREATEDAT', 'CREATED ON']),
-      os: this.getRowValue(row, ['OS', 'OPERATING SYSTEM']),
-      arch: this.getRowValue(row, ['ARCH', 'ARCHITECTURE']),
-      address: this.getRowValue(row, ['ADDRESS', 'ADDR', 'IP', 'HOST']),
-      cpus: this.getRowValue(row, ['CPUS', 'CPU', 'VCPU']),
-      memory: this.getRowValue(row, ['MEMORY', 'MEM', 'RAM'])
-    }));
-  }
-
-  private parseImageTable(stdout: string): ImageSummary[] {
-    const rows = this.parseTable(stdout);
-    if (rows.length === 0) {
-      return [];
-    }
-
-    return rows.map((row, index) => ({
-      id: this.getRowValue(row, ['IMAGE ID', 'IMAGEID', 'ID']) ?? `image-${index}`,
-      repository: this.getRowValue(row, ['REPOSITORY', 'NAME', 'IMAGE', 'REF', 'REFERENCE']) ?? 'unknown',
-      tag: this.getRowValue(row, ['TAG', 'TAGS', 'TAG(S)']) ?? 'latest',
-      size: this.getRowValue(row, ['SIZE']),
-      createdAt: this.getRowValue(row, ['CREATED', 'CREATED AT', 'CREATEDAT', 'CREATED ON']),
-      digest: this.getRowValue(row, ['DIGEST', 'DIGESTS', 'IMAGE DIGEST'])
-    }));
-  }
-
-  private parseTable(stdout: string): Array<Record<string, string>> {
-    const ansiRegex = /\u001b\[[0-9;]*m/g;
-    const lines = stdout
-      .split(/\r?\n/)
-      .map(line => line.replace(ansiRegex, '').trimEnd())
-      .filter(line => line.length > 0);
-
-    if (lines.length < 2) {
-      return [];
-    }
-
-    const headerLine = lines[0];
-    const separator = this.detectSeparator(headerLine);
-    const headers = this.splitTableLine(headerLine, separator);
-    log(`Table headers detected: ${headers.join(', ')}`);
-    if (headers.length === 0) {
-      return [];
-    }
-
-    return lines.slice(1).map(line => {
-      const values = this.splitTableLine(line, separator);
-      const record: Record<string, string> = {};
-      headers.forEach((header, index) => {
-        const value = values[index];
-        if (value) {
-          record[header] = value;
-        }
-      });
-      return this.normalizeRecord(record);
-    }).filter(row => Object.keys(row).length > 0);
-  }
-
-  private detectSeparator(headerLine: string): RegExp {
-    if (headerLine.includes('\t')) {
-      return /\t+/;
-    }
-
-    if (headerLine.includes('|')) {
-      return /\s*\|\s*/;
-    }
-
-    return /\s{2,}/;
-  }
-
-  private splitTableLine(line: string, separator: RegExp): string[] {
-    return line.split(separator).map(segment => segment.trim());
-  }
-
-  private normalizeRecord(record: Record<string, string>): Record<string, string> {
-    const normalized: Record<string, string> = {};
-    for (const [key, value] of Object.entries(record)) {
-      if (!value) {
-        continue;
-      }
-
-      normalized[key] = value;
-
-      const upper = key.toUpperCase();
-      const lower = key.toLowerCase();
-      const collapsed = key.replace(/\s+/g, '');
-
-      normalized[upper] = value;
-      normalized[lower] = value;
-      normalized[collapsed] = value;
-      normalized[collapsed.toUpperCase()] = value;
-      normalized[collapsed.toLowerCase()] = value;
-    }
-
-    return normalized;
-  }
-
-  private getRowValue(row: Record<string, string>, aliases: string[]): string | undefined {
-    for (const alias of aliases) {
-      if (alias in row) {
-        return row[alias];
-      }
-    }
-    return undefined;
-  }
 
   private normalizeJsonRecords(raw: unknown, arrayProperty?: string): Record<string, unknown>[] | undefined {
     if (Array.isArray(raw)) {
@@ -454,7 +346,8 @@ export class ContainerCli {
       record['Image'],
       record['imageRef'],
       record['imageReference'],
-      record['reference']
+      record['reference'],
+      this.getNestedString(record, ['configuration', 'image', 'reference'])
     ) ?? this.extractImageReference(record);
 
     const imageDetails = this.parseImageReference(imageReference);
@@ -469,12 +362,9 @@ export class ContainerCli {
       this.getNestedValue(record, ['networkSettings', 'ports'])
     );
 
-    const address = this.firstString(
-      record['address'],
-      record['addr'],
-      record['ADDR'],
-      this.extractNetworkAddress(record)
-    );
+    const networkDetails = this.extractNetworkDetails(record);
+
+    const volumes = this.extractVolumeMounts(record);
 
     const createdAt = this.firstString(
       record['createdAt'],
@@ -527,10 +417,12 @@ export class ContainerCli {
       image: imageDetails.full ?? imageReference ?? 'unknown',
       status,
       ports,
+      ipAddress: networkDetails.primaryIp,
       createdAt,
       os,
       arch,
-      address,
+      address: networkDetails.summary,
+      volumes,
       cpus,
       memory
     };
@@ -565,7 +457,7 @@ export class ContainerCli {
       record['Size'],
       descriptor?.['size']
     );
-    const size = this.formatMaybeBytes(sizeRaw);
+    const size = this.formatImageSize(sizeRaw);
 
     const digest = this.firstString(
       record['digest'],
@@ -581,6 +473,30 @@ export class ContainerCli {
       createdAt,
       digest
     };
+  }
+
+  private formatImageSize(value: unknown): string | undefined {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    if (typeof value === 'number') {
+      return `${value} MB`;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return undefined;
+      }
+      const numeric = Number(trimmed);
+      if (!Number.isNaN(numeric)) {
+        return `${numeric} MB`;
+      }
+      return trimmed;
+    }
+
+    return String(value);
   }
 
   private formatMaybeBytes(value: unknown): string | undefined {
@@ -623,7 +539,9 @@ export class ContainerCli {
   }
 
   private extractCreatedAt(record: Record<string, unknown>): string | undefined {
-    const image = this.asRecord(record['image']) ?? this.asRecord(record['Image']);
+    const image = this.asRecord(record['image'])
+      ?? this.asRecord(record['Image'])
+      ?? this.asRecord(this.getNestedValue(record, ['configuration', 'image']));
     const descriptor = this.asRecord(image?.['descriptor']);
     const annotations = this.asRecord(descriptor?.['annotations']);
     return this.firstString(
@@ -633,7 +551,9 @@ export class ContainerCli {
   }
 
   private extractImageReference(record: Record<string, unknown>): string | undefined {
-    const image = this.asRecord(record['image']) ?? this.asRecord(record['Image']);
+    const image = this.asRecord(record['image'])
+      ?? this.asRecord(record['Image'])
+      ?? this.asRecord(this.getNestedValue(record, ['configuration', 'image']));
     if (!image) {
       return undefined;
     }
@@ -665,7 +585,9 @@ export class ContainerCli {
   }
 
   private extractNetworkHostname(record: Record<string, unknown>): string | undefined {
-    const networks = this.asArray(record['networks']) ?? this.asArray(record['Networks']);
+    const networks = this.asArray(record['networks'])
+      ?? this.asArray(record['Networks'])
+      ?? this.asArray(this.getNestedValue(record, ['configuration', 'networks']));
     if (!networks) {
       return undefined;
     }
@@ -690,13 +612,17 @@ export class ContainerCli {
     return undefined;
   }
 
-  private extractNetworkAddress(record: Record<string, unknown>): string | undefined {
-    const networks = this.asArray(record['networks']) ?? this.asArray(record['Networks']);
+  private extractNetworkDetails(record: Record<string, unknown>): { summary?: string; primaryIp?: string } {
+    const networks = this.asArray(record['networks'])
+      ?? this.asArray(record['Networks'])
+      ?? this.asArray(this.getNestedValue(record, ['configuration', 'networks']));
     if (!networks) {
-      return undefined;
+      return {};
     }
 
     const addresses: string[] = [];
+    let primaryIp: string | undefined;
+
     for (const entry of networks) {
       if (!this.isRecord(entry)) {
         continue;
@@ -712,6 +638,9 @@ export class ContainerCli {
       }
       if (address) {
         parts.push(address);
+        if (!primaryIp) {
+          primaryIp = address.includes('/') ? address.split('/')[0] : address;
+        }
       }
       if (gateway) {
         parts.push(`gw=${gateway}`);
@@ -721,7 +650,68 @@ export class ContainerCli {
       }
     }
 
-    return addresses.length > 0 ? addresses.join(', ') : undefined;
+    return {
+      summary: addresses.length > 0 ? addresses.join(', ') : undefined,
+      primaryIp
+    };
+  }
+
+  private extractVolumeMounts(record: Record<string, unknown>): string | undefined {
+    const mounts = this.asArray(record['mounts'])
+      ?? this.asArray(record['Mounts'])
+      ?? this.asArray(this.getNestedValue(record, ['configuration', 'mounts']));
+    if (!mounts || mounts.length === 0) {
+      return undefined;
+    }
+
+    const entries: string[] = [];
+
+    for (const mount of mounts) {
+      if (!this.isRecord(mount)) {
+        continue;
+      }
+
+      const source = this.firstString(mount['source'], mount['Source'], mount['src']);
+      const destination = this.firstString(mount['destination'], mount['Destination'], mount['target'], mount['Target']);
+      const type = this.extractMountType(mount['type']);
+
+      const parts: string[] = [];
+      if (type) {
+        parts.push(`[${type}]`);
+      }
+      if (source && destination) {
+        parts.push(`${source} -> ${destination}`);
+      } else if (destination) {
+        parts.push(destination);
+      } else if (source) {
+        parts.push(source);
+      }
+
+      if (parts.length > 0) {
+        entries.push(parts.join(' '));
+      }
+    }
+
+    return entries.length > 0 ? entries.join(', ') : undefined;
+  }
+
+  private extractMountType(value: unknown): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (this.isRecord(value)) {
+      const keys = Object.keys(value);
+      if (keys.length > 0) {
+        return keys[0];
+      }
+    }
+
+    return undefined;
   }
 
   private parseImageReference(reference?: string, tagHint?: string): { repository?: string; tag?: string; full?: string } {

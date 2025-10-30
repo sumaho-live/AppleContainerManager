@@ -1,0 +1,32 @@
+[
+    {
+        "descriptor": {
+            "mediaType": "application\/vnd.oci.image.index.v1+json",
+            "size": 375,
+            "annotations": {
+                "io.containerd.image.name": "docker.io\/dev\/node14:latest",
+                "com.apple.containerization.image.name": "dev\/node14:latest",
+                "org.opencontainers.image.created": "2025-10-26T04:18:56Z",
+                "org.opencontainers.image.ref.name": "latest"
+            },
+            "digest": "sha256:2e4aa8c033665f6650aaa74a1d2b5f2391898f32be875cc6e8c0a3608880b77a"
+        },
+        "reference": "dev\/node14:latest"
+    },
+    {
+        "descriptor": {
+            "mediaType": "application\/vnd.docker.distribution.manifest.list.v2+json",
+            "size": 1433,
+            "digest": "sha256:434215b487a329c9e867202ff89e704d3a75e554822e07f3e0c0f9e606121b33"
+        },
+        "reference": "docker.io\/library\/node:14-alpine"
+    },
+    {
+        "descriptor": {
+            "mediaType": "application\/vnd.oci.image.index.v1+json",
+            "size": 306,
+            "digest": "sha256:666991717c0d26a211b400b09ad45ac84a9f64af8a08c2c64a54884e76d98954"
+        },
+        "reference": "ghcr.io\/apple\/containerization\/vminit:0.8.1"
+    }
+]

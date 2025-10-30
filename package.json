@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.2.0-beta.8",
+  "version": "0.2.1",
   "publisher": "apple-container",
   "engines": {
     "vscode": ">=1.95.0"
@@ -19,6 +19,10 @@
     "onCommand:appleContainer.system.start",
     "onCommand:appleContainer.system.stop",
     "onCommand:appleContainer.system.restart",
+    "onCommand:appleContainer.system.refresh",
+    "onCommand:appleContainer.containers.refresh",
+    "onCommand:appleContainer.images.refresh",
+    "onCommand:appleContainer.system.upgrade",
     "onCommand:appleContainer.refresh",
     "onCommand:appleContainer.update.check",
     "workspaceContains:.vscode/settings.json"
@@ -78,8 +82,33 @@
     "menus": {
       "view/title": [
         {
-          "command": "appleContainer.refresh",
-          "when": "view == appleContainerImages || view == appleContainerContainers",
+          "command": "appleContainer.system.refresh",
+          "when": "view == appleContainerSystem",
+          "group": "navigation@1"
+        },
+        {
+          "command": "appleContainer.system.start",
+          "when": "view == appleContainerSystem && !appleContainer.system.running",
+          "group": "navigation@2"
+        },
+        {
+          "command": "appleContainer.system.stop",
+          "when": "view == appleContainerSystem && appleContainer.system.running",
+          "group": "navigation@2"
+        },
+        {
+          "command": "appleContainer.system.restart",
+          "when": "view == appleContainerSystem && appleContainer.system.running",
+          "group": "navigation@3"
+        },
+        {
+          "command": "appleContainer.images.refresh",
+          "when": "view == appleContainerImages",
+          "group": "navigation@1"
+        },
+        {
+          "command": "appleContainer.containers.refresh",
+          "when": "view == appleContainerContainers",
           "group": "navigation@1"
         },
         {
@@ -103,61 +132,114 @@
           "command": "appleContainer.system.restart",
           "when": "view == appleContainerSystem && viewItem == system-running",
           "group": "inline@2"
+        },
+        {
+          "command": "appleContainer.system.upgrade",
+          "when": "view == appleContainerSystem && viewItem == system-upgrade-available",
+          "group": "inline@3"
         }
       ],
       "commandPalette": [
-        {
-          "command": "appleContainer.system.start",
-          "when": "true",
-          "group": "appleContainer@1"
-        },
-        {
-          "command": "appleContainer.system.stop",
-          "when": "true",
-          "group": "appleContainer@2"
-        },
-        {
-          "command": "appleContainer.system.restart",
-          "when": "true",
-          "group": "appleContainer@3"
-        },
-        {
-          "command": "appleContainer.refresh",
-          "when": "true",
-          "group": "appleContainer@4"
-        },
-        {
-          "command": "appleContainer.update.check",
-          "when": "true",
-          "group": "appleContainer@5"
-        }
+      {
+        "command": "appleContainer.system.start",
+        "when": "true",
+        "group": "appleContainer@1"
+      },
+      {
+        "command": "appleContainer.system.stop",
+        "when": "true",
+        "group": "appleContainer@2"
+      },
+      {
+        "command": "appleContainer.system.restart",
+        "when": "true",
+        "group": "appleContainer@3"
+      },
+      {
+        "command": "appleContainer.system.refresh",
+        "when": "true",
+        "group": "appleContainer@4"
+      },
+      {
+        "command": "appleContainer.containers.refresh",
+        "when": "true",
+        "group": "appleContainer@5"
+      },
+      {
+        "command": "appleContainer.images.refresh",
+        "when": "true",
+        "group": "appleContainer@6"
+      },
+      {
+        "command": "appleContainer.refresh",
+        "when": "true",
+        "group": "appleContainer@7"
+      },
+      {
+        "command": "appleContainer.system.upgrade",
+        "when": "true",
+        "group": "appleContainer@8"
+      },
+      {
+        "command": "appleContainer.update.check",
+        "when": "true",
+        "group": "appleContainer@9"
+      }
       ]
     },
     "commands": [
       {
         "command": "appleContainer.system.start",
         "title": "Start System",
-        "category": "Apple Container"
+        "category": "Apple Container",
+        "icon": "$(debug-start)"
       },
       {
         "command": "appleContainer.system.stop",
         "title": "Stop System",
-        "category": "Apple Container"
+        "category": "Apple Container",
+        "icon": "$(debug-stop)"
       },
       {
         "command": "appleContainer.system.restart",
         "title": "Restart System",
-        "category": "Apple Container"
+        "category": "Apple Container",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "appleContainer.system.refresh",
+        "title": "Refresh System Status",
+        "category": "Apple Container",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "appleContainer.containers.refresh",
+        "title": "Refresh Containers",
+        "category": "Apple Container",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "appleContainer.images.refresh",
+        "title": "Refresh Images",
+        "category": "Apple Container",
+        "icon": "$(refresh)"
       },
       {
         "command": "appleContainer.refresh",
-        "title": "Refresh Containers",
+        "title": "Refresh All Views",
         "category": "Apple Container"
+      },
+      {
+        "command": "appleContainer.system.upgrade",
+        "title": "Open Latest CLI Release",
+        "category": "Apple Container",
+        "icon": "$(cloud-download)"
       },
       {
         "command": "appleContainer.update.check",
         "title": "Check for CLI Updates",
-        "category": "Apple Container"
+        "category": "Apple Container",
+        "icon": "$(cloud)"
       }
     ]
   },
