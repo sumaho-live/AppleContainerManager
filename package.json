@@ -1,0 +1,180 @@
+{
+  "name": "apple-container-manager",
+  "displayName": "Apple Container Manager",
+  "description": "Manage Apple container CLI resources directly from VS Code.",
+  "version": "0.2.0-beta.8",
+  "publisher": "apple-container",
+  "engines": {
+    "vscode": ">=1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:appleContainerSystem",
+    "onView:appleContainerImages",
+    "onView:appleContainerContainers",
+    "onCommand:appleContainer.system.start",
+    "onCommand:appleContainer.system.stop",
+    "onCommand:appleContainer.system.restart",
+    "onCommand:appleContainer.refresh",
+    "onCommand:appleContainer.update.check",
+    "workspaceContains:.vscode/settings.json"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "Apple Container",
+      "properties": {
+        "appleContainer.update.mode": {
+          "type": "string",
+          "enum": ["notify", "silent"],
+          "default": "notify",
+          "description": "Controls how update notifications are surfaced to the user."
+        },
+        "appleContainer.update.checkIntervalHours": {
+          "type": "number",
+          "default": 24,
+          "description": "Interval in hours to re-check the latest container CLI release."
+        },
+        "appleContainer.system.autoStartOnWorkspaceOpen": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically start the container system service when the workspace opens."
+        },
+        "appleContainer.pollIntervalMs": {
+          "type": "number",
+          "default": 5000,
+          "description": "Polling interval in milliseconds for refreshing container and image lists."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "appleContainers",
+          "title": "Apple Containers",
+          "icon": "media/apple.svg"
+        }
+      ]
+    },
+    "views": {
+      "appleContainers": [
+        {
+          "id": "appleContainerSystem",
+          "name": "System"
+        },
+        {
+          "id": "appleContainerImages",
+          "name": "Images"
+        },
+        {
+          "id": "appleContainerContainers",
+          "name": "Containers"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "appleContainer.refresh",
+          "when": "view == appleContainerImages || view == appleContainerContainers",
+          "group": "navigation@1"
+        },
+        {
+          "command": "appleContainer.update.check",
+          "when": "view == appleContainerImages || view == appleContainerContainers",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "appleContainer.system.start",
+          "when": "view == appleContainerSystem && viewItem == system-stopped",
+          "group": "inline@1"
+        },
+        {
+          "command": "appleContainer.system.stop",
+          "when": "view == appleContainerSystem && viewItem == system-running",
+          "group": "inline@1"
+        },
+        {
+          "command": "appleContainer.system.restart",
+          "when": "view == appleContainerSystem && viewItem == system-running",
+          "group": "inline@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "appleContainer.system.start",
+          "when": "true",
+          "group": "appleContainer@1"
+        },
+        {
+          "command": "appleContainer.system.stop",
+          "when": "true",
+          "group": "appleContainer@2"
+        },
+        {
+          "command": "appleContainer.system.restart",
+          "when": "true",
+          "group": "appleContainer@3"
+        },
+        {
+          "command": "appleContainer.refresh",
+          "when": "true",
+          "group": "appleContainer@4"
+        },
+        {
+          "command": "appleContainer.update.check",
+          "when": "true",
+          "group": "appleContainer@5"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "appleContainer.system.start",
+        "title": "Start System",
+        "category": "Apple Container"
+      },
+      {
+        "command": "appleContainer.system.stop",
+        "title": "Stop System",
+        "category": "Apple Container"
+      },
+      {
+        "command": "appleContainer.system.restart",
+        "title": "Restart System",
+        "category": "Apple Container"
+      },
+      {
+        "command": "appleContainer.refresh",
+        "title": "Refresh Containers",
+        "category": "Apple Container"
+      },
+      {
+        "command": "appleContainer.update.check",
+        "title": "Check for CLI Updates",
+        "category": "Apple Container"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint ./src --ext .ts",
+    "package": "vsce package",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/vscode": "^1.95.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.0",
+    "vsce": "^2.15.0"
+  }
+}
