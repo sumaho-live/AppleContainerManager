@@ -1,5 +1,17 @@
 # Development Log
 
+## 2025-10-30 — Container creation wizard and UI simplification
+
+### Summary
+- Added a two-step container creation wizard (image/resources then networking/storage) with a toolbar shortcut in the Containers view.
+- Enhanced container hover tooltips to surface architecture, CPU, memory, and port summaries directly in the tree plus refreshed row descriptions.
+- Normalised container status display to “Stopped” whenever the system service is offline and removed restart operations and the status bar badge.
+- Updated CLI wrapper to support `container run` with ports, volumes, and additional arguments from the wizard.
+
+### Outstanding Follow-ups
+- Evaluate capturing more CLI defaults (env files, entrypoint overrides) in the wizard’s advanced step.
+- Investigate persisting recent wizard selections per workspace for quicker repeated container creation.
+
 ## 2025-10-30 — Removal actions and restart guard
 
 ### Summary

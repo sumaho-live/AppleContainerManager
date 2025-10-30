@@ -5,22 +5,18 @@ import { AppleContainerError, ErrorCode } from './core/errors';
 import { CacheStore } from './core/cache';
 import { events } from './core/events';
 import { log, logError } from './core/logger';
-import { StatusBarManager } from './core/statusBar';
 import { handleWorkspaceAutoStart } from './core/workspaceAutoStart';
 import { ImageTreeItem, ImagesTreeProvider } from './views/imageTree';
 import { ContainerTreeItem, ContainersTreeProvider } from './views/containerTree';
+import { ContainerCreateWizard } from './views/containerCreateWizard';
 import { SystemTreeProvider, SystemTreeItem } from './views/systemTree';
 import { fetchLatestRelease } from './updater/githubClient';
-
-let statusBar: StatusBarManager | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   log('Activating Apple Container Manager extension');
 
   const cli = new ContainerCli();
   const cache = new CacheStore(context.globalState);
-  statusBar = new StatusBarManager();
-  context.subscriptions.push(statusBar);
 
   const systemProvider = new SystemTreeProvider(cache);
   const containersProvider = new ContainersTreeProvider(cli, cache);
@@ -46,7 +42,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export function deactivate(): void {
-  statusBar?.dispose();
 }
 
 async function initializeCli(
@@ -61,7 +56,6 @@ async function initializeCli(
   } catch (error) {
     const containerError = error instanceof AppleContainerError ? error : new AppleContainerError('Failed to detect container CLI', ErrorCode.Unknown, error);
     logError('Unable to read container CLI version', containerError);
-    statusBar?.setError('Apple Container: CLI unavailable');
     const message = containerError.code === ErrorCode.CliNotFound
       ? 'Apple container CLI not found. Install it to enable full functionality.'
       : `Failed to detect Apple container CLI. ${containerError.message}`;
@@ -91,15 +85,6 @@ function registerCommands(
         await cli.system('stop');
         await refreshSystemStatus(cli, containersProvider, imagesProvider, cache, { requestedRunning: false, refreshResources: true });
         void vscode.window.showInformationMessage('Apple container system stopped.');
-      });
-    }),
-    vscode.commands.registerCommand('appleContainer.system.restart', async () => {
-      await withCommandHandling('Restarting container system', async () => {
-        await cli.system('stop');
-        await refreshSystemStatus(cli, containersProvider, imagesProvider, cache, { requestedRunning: false, refreshResources: true });
-        await cli.system('start');
-        await refreshSystemStatus(cli, containersProvider, imagesProvider, cache, { requestedRunning: true, refreshResources: true });
-        void vscode.window.showInformationMessage('Apple container system restarted.');
       });
     }),
     vscode.commands.registerCommand('appleContainer.system.refresh', async () => {
@@ -140,17 +125,6 @@ function registerCommands(
         void vscode.window.showInformationMessage(`Container ${identifier} stopped.`);
       });
     }),
-    vscode.commands.registerCommand('appleContainer.container.restart', async (item?: ContainerTreeItem) => {
-      if (!item?.container || item.container.id === 'empty-containers') {
-        return;
-      }
-      const identifier = item.container.name ?? item.container.id;
-      await withCommandHandling(`Restarting container ${identifier}`, async () => {
-        await cli.restartContainer(item.container.id);
-        await containersProvider.refresh();
-        void vscode.window.showInformationMessage(`Container ${identifier} restarted.`);
-      });
-    }),
     vscode.commands.registerCommand('appleContainer.container.remove', async (item?: ContainerTreeItem) => {
       if (!item?.container || item.container.id === 'empty-containers') {
         return;
@@ -185,6 +159,28 @@ function registerCommands(
         await cli.removeImage(references);
         await imagesProvider.refresh();
         void vscode.window.showInformationMessage(`Image ${references[0] ?? item.image.id} removed.`);
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.container.create', async () => {
+      await withCommandHandling('Creating container', async () => {
+        let images = cache.getImages();
+        if (images.length === 0) {
+          try {
+            await imagesProvider.refresh();
+            images = cache.getImages();
+          } catch (error) {
+            logError('Failed to refresh images prior to container creation', error);
+          }
+        }
+        const wizard = new ContainerCreateWizard(images, vscode.workspace.workspaceFolders);
+        const result = await wizard.run();
+        if (!result) {
+          return;
+        }
+        await cli.createContainer(result);
+        await containersProvider.refresh();
+        const identifier = result.name ?? result.image;
+        void vscode.window.showInformationMessage(`容器 ${identifier} 创建成功。`);
       });
     }),
     vscode.commands.registerCommand('appleContainer.refresh', async () => {

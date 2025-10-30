@@ -40,6 +40,24 @@ export interface ExecOptions {
   cwd?: string;
 }
 
+export interface VolumeMapping {
+  source: string;
+  target: string;
+  readOnly?: boolean;
+}
+
+export interface ContainerCreateOptions {
+  image: string;
+  name?: string;
+  arch?: string;
+  cpus?: number;
+  memory?: string;
+  ports?: string[];
+  volumes?: VolumeMapping[];
+  additionalArgs?: string[];
+  detach?: boolean;
+}
+
 export class ContainerCli {
   constructor(private readonly binary: string = 'container') {}
 
@@ -245,6 +263,71 @@ export class ContainerCli {
       variants.push(['image', 'delete', ref]);
     }
     await this.execWithFallback(variants);
+  }
+
+  async createContainer(options: ContainerCreateOptions): Promise<void> {
+    const image = options.image?.trim();
+    if (!image) {
+      throw new AppleContainerError('Container image is required', ErrorCode.CommandFailed);
+    }
+
+    const args: string[] = ['run'];
+    if (options.detach !== false) {
+      args.push('--detach');
+    }
+
+    if (options.name?.trim()) {
+      args.push('--name', options.name.trim());
+    }
+
+    if (options.arch?.trim()) {
+      args.push('--arch', options.arch.trim());
+    }
+
+    if (typeof options.cpus === 'number' && options.cpus > 0) {
+      args.push('--cpus', options.cpus.toString());
+    }
+
+    if (options.memory?.trim()) {
+      args.push('--memory', options.memory.trim());
+    }
+
+    const uniquePorts = Array.from(
+      new Set((options.ports ?? []).map(port => port.trim()).filter(port => port.length > 0))
+    );
+    for (const port of uniquePorts) {
+      args.push('--publish', port);
+    }
+
+    const uniqueVolumes = Array.from(
+      new Set(
+        (options.volumes ?? [])
+          .map(volume => {
+            if (!volume.source?.trim() || !volume.target?.trim()) {
+              return undefined;
+            }
+            const source = volume.source.trim();
+            const target = volume.target.trim();
+            const spec = volume.readOnly ? `${source}:${target}:ro` : `${source}:${target}`;
+            return spec;
+          })
+          .filter((value): value is string => Boolean(value && value.length > 0))
+      )
+    );
+    for (const spec of uniqueVolumes) {
+      args.push('--volume', spec);
+    }
+
+    for (const additional of options.additionalArgs ?? []) {
+      const trimmed = additional?.trim();
+      if (trimmed?.length) {
+        args.push(trimmed);
+      }
+    }
+
+    args.push(image);
+
+    await this.exec(args);
   }
 
   async ensureAvailable(): Promise<void> {

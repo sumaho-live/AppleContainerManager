@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.2.5",
+  "version": "0.2.7",
   "publisher": "apple-container",
   "engines": {
     "vscode": ">=1.95.0"
@@ -18,14 +18,13 @@
     "onView:appleContainerContainers",
     "onCommand:appleContainer.system.start",
     "onCommand:appleContainer.system.stop",
-    "onCommand:appleContainer.system.restart",
     "onCommand:appleContainer.system.refresh",
     "onCommand:appleContainer.containers.refresh",
     "onCommand:appleContainer.images.refresh",
     "onCommand:appleContainer.container.start",
     "onCommand:appleContainer.container.stop",
-    "onCommand:appleContainer.container.restart",
     "onCommand:appleContainer.container.remove",
+    "onCommand:appleContainer.container.create",
     "onCommand:appleContainer.system.upgrade",
     "onCommand:appleContainer.refresh",
     "onCommand:appleContainer.image.remove",
@@ -102,14 +101,14 @@
           "group": "navigation@2"
         },
         {
-          "command": "appleContainer.system.restart",
-          "when": "view == appleContainerSystem && appleContainer.system.running",
-          "group": "navigation@3"
-        },
-        {
           "command": "appleContainer.images.refresh",
           "when": "view == appleContainerImages && appleContainer.system.running",
           "group": "navigation@1"
+        },
+        {
+          "command": "appleContainer.container.create",
+          "when": "view == appleContainerContainers && appleContainer.system.running",
+          "group": "navigation@0"
         },
         {
           "command": "appleContainer.containers.refresh",
@@ -134,11 +133,6 @@
           "group": "inline@1"
         },
         {
-          "command": "appleContainer.system.restart",
-          "when": "view == appleContainerSystem && viewItem == system-running",
-          "group": "inline@2"
-        },
-        {
           "command": "appleContainer.container.start",
           "when": "view == appleContainerContainers && viewItem =~ /container-stopped($|-deletable)/",
           "group": "inline@1"
@@ -147,11 +141,6 @@
           "command": "appleContainer.container.stop",
           "when": "view == appleContainerContainers && viewItem == container-running",
           "group": "inline@1"
-        },
-        {
-          "command": "appleContainer.container.restart",
-          "when": "view == appleContainerContainers && viewItem == container-running",
-          "group": "inline@2"
         },
         {
           "command": "appleContainer.container.remove",
@@ -181,7 +170,7 @@
           "group": "appleContainer@2"
         },
         {
-          "command": "appleContainer.system.restart",
+          "command": "appleContainer.container.create",
           "when": "true",
           "group": "appleContainer@3"
         },
@@ -196,14 +185,9 @@
           "group": "appleContainer@5"
         },
         {
-          "command": "appleContainer.container.restart",
-          "when": "true",
-          "group": "appleContainer@6"
-        },
-        {
           "command": "appleContainer.container.remove",
           "when": "true",
-          "group": "appleContainer@7"
+          "group": "appleContainer@6"
         },
         {
           "command": "appleContainer.image.remove",
@@ -256,12 +240,6 @@
         "icon": "$(debug-stop)"
       },
       {
-        "command": "appleContainer.system.restart",
-        "title": "Restart System",
-        "category": "Apple Container",
-        "icon": "$(debug-restart)"
-      },
-      {
         "command": "appleContainer.system.refresh",
         "title": "Refresh System Status",
         "category": "Apple Container",
@@ -292,16 +270,16 @@
         "icon": "$(debug-stop)"
       },
       {
-        "command": "appleContainer.container.restart",
-        "title": "Restart Container",
-        "category": "Apple Container",
-        "icon": "$(debug-restart)"
-      },
-      {
         "command": "appleContainer.container.remove",
         "title": "Remove Container",
         "category": "Apple Container",
         "icon": "$(trash)"
+      },
+      {
+        "command": "appleContainer.container.create",
+        "title": "Create Container",
+        "category": "Apple Container",
+        "icon": "$(add)"
       },
       {
         "command": "appleContainer.image.remove",

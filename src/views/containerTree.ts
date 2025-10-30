@@ -11,7 +11,11 @@ export class ContainerTreeItem extends vscode.TreeItem {
     super(label, vscode.TreeItemCollapsibleState.None);
 
     const statusLabel = container.status?.trim().length ? container.status : 'Unknown';
-    const detailParts = [container.image].filter(Boolean);
+    const detailParts = [
+      container.image,
+      this.buildResourceSummary(container),
+      this.formatPortSummary(container)
+    ].filter((part): part is string => Boolean(part && part.length > 0));
     this.description = detailParts.length > 0 ? detailParts.join(' · ') : undefined;
     this.tooltip = container.id === 'empty-containers'
       ? 'No containers detected from Apple container CLI'
@@ -38,20 +42,34 @@ export class ContainerTreeItem extends vscode.TreeItem {
   }
 
   private buildTooltip(container: ContainerSummary): string {
+    const resourceSummary = this.buildResourceSummary(container);
+    const portSummary = this.formatPortSummary(container);
     const lines = [
       `Image: ${container.image}`,
       container.status ? `State: ${container.status}` : undefined,
+      resourceSummary ? `Resources: ${resourceSummary}` : undefined,
+      portSummary ? `Ports: ${portSummary}` : undefined,
       container.ipAddress ? `IP Address: ${container.ipAddress}` : undefined,
       container.address ? `Network: ${container.address}` : undefined,
-      container.ports ? `Ports: ${container.ports}` : undefined,
       container.volumes ? `Volumes: ${container.volumes}` : undefined,
-      container.cpus ? `CPUs: ${container.cpus}` : undefined,
-      container.memory ? `Memory: ${container.memory}` : undefined,
       container.os ? `OS: ${container.os}` : undefined,
       container.arch ? `Arch: ${container.arch}` : undefined,
       container.createdAt ? `Created: ${container.createdAt}` : undefined
     ].filter(Boolean);
     return lines.join('\n');
+  }
+
+  private buildResourceSummary(container: ContainerSummary): string | undefined {
+    const archRaw = container.arch ?? container.os;
+    const arch = archRaw ? archRaw.charAt(0).toUpperCase() + archRaw.slice(1) : undefined;
+    const cpus = container.cpus?.trim() ?? undefined;
+    const memory = container.memory?.trim()?.toUpperCase() ?? undefined;
+    const parts = [arch, cpus, memory].filter((part): part is string => Boolean(part && part.length > 0));
+    return parts.length > 0 ? parts.join('/') : undefined;
+  }
+
+  private formatPortSummary(container: ContainerSummary): string | undefined {
+    return container.ports?.trim() ?? undefined;
   }
 }
 
@@ -69,12 +87,14 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
       this.serviceRunning = payload.running;
       if (!payload.running) {
         log('System reported stopped; loading containers from cache');
-        this.items = this.cache.getContainers();
+        this.items = this.withStoppedStatus(this.cache.getContainers());
         this.emitter.fire();
+        return;
       }
+      this.emitter.fire();
     };
     events.on('system:status', this.statusListener);
-    this.items = this.cache.getContainers();
+    this.items = this.withStoppedStatus(this.cache.getContainers());
     if (this.items.length > 0) {
       log(`Container cache primed with ${this.items.length} entries`);
     }
@@ -84,7 +104,7 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
 
   async refresh(): Promise<void> {
     if (!this.serviceRunning) {
-      this.items = this.cache.getContainers();
+      this.items = this.withStoppedStatus(this.cache.getContainers());
       if (this.items.length > 0) {
         log(`Containers loaded from cache (${this.items.length})`);
       } else {
@@ -110,7 +130,7 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
       const cached = this.cache.getContainers();
       if (cached.length > 0) {
         log('Falling back to cached containers after refresh failure');
-        this.items = cached;
+        this.items = this.serviceRunning ? cached : this.withStoppedStatus(cached);
         this.emitter.fire();
       }
     }
@@ -136,5 +156,12 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
   dispose(): void {
     events.off('system:status', this.statusListener);
     this.emitter.dispose();
+  }
+
+  private withStoppedStatus(containers: ContainerSummary[]): ContainerSummary[] {
+    return containers.map(container => ({
+      ...container,
+      status: container.id === 'empty-containers' ? container.status : 'Stopped'
+    }));
   }
 }
