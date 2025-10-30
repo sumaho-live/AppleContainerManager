@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 
 import { ContainerCli, ImageSummary } from '../cli/containerCli';
-import { events } from '../core/events';
+import { CacheStore } from '../core/cache';
+import { events, SystemStatusPayload } from '../core/events';
 import { log, logError } from '../core/logger';
 
 export class ImageTreeItem extends vscode.TreeItem {
@@ -32,19 +33,50 @@ export class ImageTreeItem extends vscode.TreeItem {
   }
 }
 
-export class ImagesTreeProvider implements vscode.TreeDataProvider<ImageTreeItem> {
+export class ImagesTreeProvider implements vscode.TreeDataProvider<ImageTreeItem>, vscode.Disposable {
   private readonly emitter = new vscode.EventEmitter<ImageTreeItem | undefined | null | void>();
   private items: ImageSummary[] = [];
+  private serviceRunning = false;
+  private readonly statusListener: (payload: SystemStatusPayload) => void;
 
-  constructor(private readonly cli: ContainerCli) {}
+  constructor(
+    private readonly cli: ContainerCli,
+    private readonly cache: CacheStore
+  ) {
+    this.statusListener = payload => {
+      this.serviceRunning = payload.running;
+      if (!payload.running) {
+        log('System reported stopped; loading images from cache');
+        this.items = this.cache.getImages();
+        this.emitter.fire();
+      }
+    };
+    events.on('system:status', this.statusListener);
+    this.items = this.cache.getImages();
+    if (this.items.length > 0) {
+      log(`Image cache primed with ${this.items.length} entries`);
+    }
+  }
 
   readonly onDidChangeTreeData: vscode.Event<ImageTreeItem | undefined | null | void> = this.emitter.event;
 
   async refresh(): Promise<void> {
+    if (!this.serviceRunning) {
+      this.items = this.cache.getImages();
+      if (this.items.length > 0) {
+        log(`Images loaded from cache (${this.items.length})`);
+      } else {
+        log('No cached images available while system stopped');
+      }
+      this.emitter.fire();
+      return;
+    }
+
     try {
       const images = await this.cli.listImages();
       this.items = images;
       events.emit('data:images', images);
+      await this.cache.setImages(images);
       log(`Images refreshed (${images.length})`);
       if (images.length > 0) {
         const preview = images.map(image => `${image.repository}:${image.tag}`).join(', ');
@@ -53,6 +85,12 @@ export class ImagesTreeProvider implements vscode.TreeDataProvider<ImageTreeItem
       this.emitter.fire();
     } catch (error) {
       logError('Unable to refresh images', error);
+      const cached = this.cache.getImages();
+      if (cached.length > 0) {
+        log('Falling back to cached images after refresh failure');
+        this.items = cached;
+        this.emitter.fire();
+      }
     }
   }
 
@@ -73,5 +111,10 @@ export class ImagesTreeProvider implements vscode.TreeDataProvider<ImageTreeItem
     }
 
     return this.items.map(item => new ImageTreeItem(item));
+  }
+
+  dispose(): void {
+    events.off('system:status', this.statusListener);
+    this.emitter.dispose();
   }
 }

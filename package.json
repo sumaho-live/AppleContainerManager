@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "apple-container",
   "engines": {
     "vscode": ">=1.95.0"
@@ -22,6 +22,9 @@
     "onCommand:appleContainer.system.refresh",
     "onCommand:appleContainer.containers.refresh",
     "onCommand:appleContainer.images.refresh",
+    "onCommand:appleContainer.container.start",
+    "onCommand:appleContainer.container.stop",
+    "onCommand:appleContainer.container.restart",
     "onCommand:appleContainer.system.upgrade",
     "onCommand:appleContainer.refresh",
     "onCommand:appleContainer.update.check",
@@ -103,17 +106,17 @@
         },
         {
           "command": "appleContainer.images.refresh",
-          "when": "view == appleContainerImages",
+          "when": "view == appleContainerImages && appleContainer.system.running",
           "group": "navigation@1"
         },
         {
           "command": "appleContainer.containers.refresh",
-          "when": "view == appleContainerContainers",
+          "when": "view == appleContainerContainers && appleContainer.system.running",
           "group": "navigation@1"
         },
         {
           "command": "appleContainer.update.check",
-          "when": "view == appleContainerImages || view == appleContainerContainers",
+          "when": "view == appleContainerSystem",
           "group": "navigation@2"
         }
       ],
@@ -134,57 +137,87 @@
           "group": "inline@2"
         },
         {
+          "command": "appleContainer.container.start",
+          "when": "view == appleContainerContainers && viewItem == container-stopped",
+          "group": "inline@1"
+        },
+        {
+          "command": "appleContainer.container.stop",
+          "when": "view == appleContainerContainers && viewItem == container-running",
+          "group": "inline@1"
+        },
+        {
+          "command": "appleContainer.container.restart",
+          "when": "view == appleContainerContainers && viewItem == container-running",
+          "group": "inline@2"
+        },
+        {
           "command": "appleContainer.system.upgrade",
           "when": "view == appleContainerSystem && viewItem == system-upgrade-available",
           "group": "inline@3"
         }
       ],
       "commandPalette": [
-      {
-        "command": "appleContainer.system.start",
-        "when": "true",
-        "group": "appleContainer@1"
-      },
-      {
-        "command": "appleContainer.system.stop",
-        "when": "true",
-        "group": "appleContainer@2"
-      },
-      {
-        "command": "appleContainer.system.restart",
-        "when": "true",
-        "group": "appleContainer@3"
-      },
-      {
-        "command": "appleContainer.system.refresh",
-        "when": "true",
-        "group": "appleContainer@4"
-      },
-      {
-        "command": "appleContainer.containers.refresh",
-        "when": "true",
-        "group": "appleContainer@5"
-      },
-      {
-        "command": "appleContainer.images.refresh",
-        "when": "true",
-        "group": "appleContainer@6"
-      },
-      {
-        "command": "appleContainer.refresh",
-        "when": "true",
-        "group": "appleContainer@7"
-      },
-      {
-        "command": "appleContainer.system.upgrade",
-        "when": "true",
-        "group": "appleContainer@8"
-      },
-      {
-        "command": "appleContainer.update.check",
-        "when": "true",
-        "group": "appleContainer@9"
-      }
+        {
+          "command": "appleContainer.system.start",
+          "when": "true",
+          "group": "appleContainer@1"
+        },
+        {
+          "command": "appleContainer.system.stop",
+          "when": "true",
+          "group": "appleContainer@2"
+        },
+        {
+          "command": "appleContainer.system.restart",
+          "when": "true",
+          "group": "appleContainer@3"
+        },
+        {
+          "command": "appleContainer.container.start",
+          "when": "true",
+          "group": "appleContainer@4"
+        },
+        {
+          "command": "appleContainer.container.stop",
+          "when": "true",
+          "group": "appleContainer@5"
+        },
+        {
+          "command": "appleContainer.container.restart",
+          "when": "true",
+          "group": "appleContainer@6"
+        },
+        {
+          "command": "appleContainer.system.refresh",
+          "when": "true",
+          "group": "appleContainer@7"
+        },
+        {
+          "command": "appleContainer.containers.refresh",
+          "when": "true",
+          "group": "appleContainer@8"
+        },
+        {
+          "command": "appleContainer.images.refresh",
+          "when": "true",
+          "group": "appleContainer@9"
+        },
+        {
+          "command": "appleContainer.refresh",
+          "when": "true",
+          "group": "appleContainer@10"
+        },
+        {
+          "command": "appleContainer.system.upgrade",
+          "when": "true",
+          "group": "appleContainer@11"
+        },
+        {
+          "command": "appleContainer.update.check",
+          "when": "true",
+          "group": "appleContainer@12"
+        }
       ]
     },
     "commands": [
@@ -223,6 +256,24 @@
         "title": "Refresh Images",
         "category": "Apple Container",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "appleContainer.container.start",
+        "title": "Start Container",
+        "category": "Apple Container",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "appleContainer.container.stop",
+        "title": "Stop Container",
+        "category": "Apple Container",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "appleContainer.container.restart",
+        "title": "Restart Container",
+        "category": "Apple Container",
+        "icon": "$(debug-restart)"
       },
       {
         "command": "appleContainer.refresh",

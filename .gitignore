@@ -4,3 +4,4 @@ dist
 .vscodeignore
 .DS_Store
 .env
+*.vsix

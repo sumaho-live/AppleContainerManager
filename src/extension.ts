@@ -2,12 +2,13 @@ import * as vscode from 'vscode';
 
 import { ContainerCli } from './cli/containerCli';
 import { AppleContainerError, ErrorCode } from './core/errors';
+import { CacheStore } from './core/cache';
 import { events } from './core/events';
 import { log, logError } from './core/logger';
 import { StatusBarManager } from './core/statusBar';
 import { handleWorkspaceAutoStart } from './core/workspaceAutoStart';
 import { ImagesTreeProvider } from './views/imageTree';
-import { ContainersTreeProvider } from './views/containerTree';
+import { ContainerTreeItem, ContainersTreeProvider } from './views/containerTree';
 import { SystemTreeProvider, SystemTreeItem } from './views/systemTree';
 import { fetchLatestRelease } from './updater/githubClient';
 
@@ -17,27 +18,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   log('Activating Apple Container Manager extension');
 
   const cli = new ContainerCli();
+  const cache = new CacheStore(context.globalState);
   statusBar = new StatusBarManager();
   context.subscriptions.push(statusBar);
 
-  const systemProvider = new SystemTreeProvider();
-  const containersProvider = new ContainersTreeProvider(cli);
-  const imagesProvider = new ImagesTreeProvider(cli);
+  const systemProvider = new SystemTreeProvider(cache);
+  const containersProvider = new ContainersTreeProvider(cli, cache);
+  const imagesProvider = new ImagesTreeProvider(cli, cache);
 
   context.subscriptions.push(
     systemProvider,
+    containersProvider,
+    imagesProvider,
     vscode.window.registerTreeDataProvider('appleContainerSystem', systemProvider),
     vscode.window.registerTreeDataProvider('appleContainerContainers', containersProvider),
     vscode.window.registerTreeDataProvider('appleContainerImages', imagesProvider)
   );
 
-  const cliReady = await initializeCli(cli, containersProvider, imagesProvider);
+  const cliReady = await initializeCli(cli, containersProvider, imagesProvider, cache);
   if (cliReady) {
     await handleWorkspaceAutoStart(cli);
-    await refreshSystemStatus(cli, containersProvider, imagesProvider, { refreshResources: true, requestedRunning: true });
+    await refreshSystemStatus(cli, containersProvider, imagesProvider, cache, { refreshResources: true, requestedRunning: true });
   }
 
-  registerCommands(context, cli, systemProvider, containersProvider, imagesProvider);
+  registerCommands(context, cli, systemProvider, containersProvider, imagesProvider, cache);
   registerErrorHandler(context);
 }
 
@@ -48,10 +52,11 @@ export function deactivate(): void {
 async function initializeCli(
   cli: ContainerCli,
   containersProvider: ContainersTreeProvider,
-  imagesProvider: ImagesTreeProvider
+  imagesProvider: ImagesTreeProvider,
+  cache: CacheStore
 ): Promise<boolean> {
   try {
-    await refreshSystemStatus(cli, containersProvider, imagesProvider, { refreshResources: true });
+    await refreshSystemStatus(cli, containersProvider, imagesProvider, cache, { refreshResources: true });
     return true;
   } catch (error) {
     const containerError = error instanceof AppleContainerError ? error : new AppleContainerError('Failed to detect container CLI', ErrorCode.Unknown, error);
@@ -70,33 +75,36 @@ function registerCommands(
   cli: ContainerCli,
   systemProvider: SystemTreeProvider,
   containersProvider: ContainersTreeProvider,
-  imagesProvider: ImagesTreeProvider
+  imagesProvider: ImagesTreeProvider,
+  cache: CacheStore
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('appleContainer.system.start', async () => {
       await withCommandHandling('Starting container system', async () => {
         await cli.system('start');
-        await refreshSystemStatus(cli, containersProvider, imagesProvider, { requestedRunning: true, refreshResources: true });
+        await refreshSystemStatus(cli, containersProvider, imagesProvider, cache, { requestedRunning: true, refreshResources: true });
         void vscode.window.showInformationMessage('Apple container system started.');
       });
     }),
     vscode.commands.registerCommand('appleContainer.system.stop', async () => {
       await withCommandHandling('Stopping container system', async () => {
         await cli.system('stop');
-        await refreshSystemStatus(cli, containersProvider, imagesProvider, { requestedRunning: false, refreshResources: true });
+        await refreshSystemStatus(cli, containersProvider, imagesProvider, cache, { requestedRunning: false, refreshResources: true });
         void vscode.window.showInformationMessage('Apple container system stopped.');
       });
     }),
     vscode.commands.registerCommand('appleContainer.system.restart', async () => {
       await withCommandHandling('Restarting container system', async () => {
-        await cli.system('restart');
-        await refreshSystemStatus(cli, containersProvider, imagesProvider, { requestedRunning: true, refreshResources: true });
+        await cli.system('stop');
+        await refreshSystemStatus(cli, containersProvider, imagesProvider, cache, { requestedRunning: false, refreshResources: true });
+        await cli.system('start');
+        await refreshSystemStatus(cli, containersProvider, imagesProvider, cache, { requestedRunning: true, refreshResources: true });
         void vscode.window.showInformationMessage('Apple container system restarted.');
       });
     }),
     vscode.commands.registerCommand('appleContainer.system.refresh', async () => {
       await withCommandHandling('Refreshing system status', async () => {
-        await refreshSystemStatus(cli, containersProvider, imagesProvider, { refreshResources: true });
+        await refreshSystemStatus(cli, containersProvider, imagesProvider, cache, { refreshResources: true });
         void vscode.window.showInformationMessage('Apple container system status refreshed.');
       });
     }),
@@ -110,9 +118,42 @@ function registerCommands(
         await imagesProvider.refresh();
       });
     }),
+    vscode.commands.registerCommand('appleContainer.container.start', async (item?: ContainerTreeItem) => {
+      if (!item?.container || item.container.id === 'empty-containers') {
+        return;
+      }
+      const identifier = item.container.name ?? item.container.id;
+      await withCommandHandling(`Starting container ${identifier}`, async () => {
+        await cli.startContainer(item.container.id);
+        await containersProvider.refresh();
+        void vscode.window.showInformationMessage(`Container ${identifier} started.`);
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.container.stop', async (item?: ContainerTreeItem) => {
+      if (!item?.container || item.container.id === 'empty-containers') {
+        return;
+      }
+      const identifier = item.container.name ?? item.container.id;
+      await withCommandHandling(`Stopping container ${identifier}`, async () => {
+        await cli.stopContainer(item.container.id);
+        await containersProvider.refresh();
+        void vscode.window.showInformationMessage(`Container ${identifier} stopped.`);
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.container.restart', async (item?: ContainerTreeItem) => {
+      if (!item?.container || item.container.id === 'empty-containers') {
+        return;
+      }
+      const identifier = item.container.name ?? item.container.id;
+      await withCommandHandling(`Restarting container ${identifier}`, async () => {
+        await cli.restartContainer(item.container.id);
+        await containersProvider.refresh();
+        void vscode.window.showInformationMessage(`Container ${identifier} restarted.`);
+      });
+    }),
     vscode.commands.registerCommand('appleContainer.refresh', async () => {
       await withCommandHandling('Refreshing Apple container resources', async () => {
-        await refreshSystemStatus(cli, containersProvider, imagesProvider, { refreshResources: true });
+        await refreshSystemStatus(cli, containersProvider, imagesProvider, cache, { refreshResources: true });
       });
       void vscode.window.showInformationMessage('Apple container views refreshed.');
     }),
@@ -179,6 +220,7 @@ async function refreshSystemStatus(
   cli: ContainerCli,
   containersProvider: ContainersTreeProvider,
   imagesProvider: ImagesTreeProvider,
+  cache: CacheStore,
   options: RefreshOptions = {}
 ): Promise<void> {
   const latestReleasePromise = fetchLatestRelease().catch(error => {
@@ -201,6 +243,12 @@ async function refreshSystemStatus(
   log(`Emitting system status (running=${resolvedRunning}, localVersion=${localVersion}, latestVersion=${latestVersion ?? 'unknown'}, updateAvailable=${updateAvailable})`);
   events.emit('system:status', {
     running: resolvedRunning,
+    localVersion,
+    latestVersion,
+    latestUrl,
+    updateAvailable
+  });
+  await cache.setSystemInfo({
     localVersion,
     latestVersion,
     latestUrl,

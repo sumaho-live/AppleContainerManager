@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { CacheStore } from '../core/cache';
 import { events, SystemStatusPayload } from '../core/events';
 import { log } from '../core/logger';
 
@@ -44,21 +45,33 @@ export class SystemTreeProvider implements vscode.TreeDataProvider<SystemTreeIte
   private updateAvailable = false;
   private readonly statusListener: (payload: SystemStatusPayload) => void;
 
-  constructor() {
+  constructor(private readonly cache: CacheStore) {
+    const cached = this.cache.getSystemInfo();
+    this.localVersion = cached.localVersion ?? this.localVersion;
+    this.latestVersion = cached.latestVersion ?? this.latestVersion;
+    this.latestUrl = cached.latestUrl ?? this.latestUrl;
+    this.updateAvailable = cached.updateAvailable ?? this.updateAvailable;
+
     this.statusListener = payload => {
       log(`System status event received (running=${payload.running}, localVersion=${payload.localVersion ?? 'unknown'}, latest=${payload.latestVersion ?? 'unknown'}, updateAvailable=${payload.updateAvailable ?? false})`);
       this.running = payload.running;
-      this.localVersion = payload.localVersion;
-      this.latestVersion = payload.latestVersion;
-      this.latestUrl = payload.latestUrl;
-      this.updateAvailable = payload.updateAvailable ?? false;
+      if (payload.localVersion !== undefined) {
+        this.localVersion = payload.localVersion;
+      }
+      if (payload.latestVersion !== undefined) {
+        this.latestVersion = payload.latestVersion;
+      }
+      if (payload.latestUrl !== undefined) {
+        this.latestUrl = payload.latestUrl;
+      }
+      if (payload.updateAvailable !== undefined) {
+        this.updateAvailable = payload.updateAvailable;
+      }
       this.syncContexts();
       this.emitter.fire();
     };
 
-    void vscode.commands.executeCommand('setContext', 'appleContainer.system.running', this.running);
-    void vscode.commands.executeCommand('setContext', 'appleContainer.system.updateAvailable', this.updateAvailable);
-    void vscode.commands.executeCommand('setContext', 'appleContainer.system.hasLatest', Boolean(this.latestVersion));
+    this.syncContexts();
     events.on('system:status', this.statusListener);
   }
 

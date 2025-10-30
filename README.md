@@ -6,10 +6,10 @@ A VS Code extension for macOS that provides visual management for Apple’s nati
 
 ## Features
 - Activity Bar view: “Apple Containers” with System, Images, and Containers trees
-- Container actions: Start / Stop / Restart / Remove / Logs / Exec
-- Image actions: Pull / Remove / Run
+- Inline container controls: start / stop / restart directly from hover icons
 - Dedicated System view with Start / Stop / Restart controls and status bar integration
-- Detects container CLI version and notifies about updates
+- Offline cache of system version, images, and containers for quick read-only access when the service is stopped
+- Detects container CLI version, checks GitHub for the latest release, and surfaces inline upgrade actions
 - Optional workspace-level auto-start of the system service
 - Lightweight, native, no external dependencies
 
@@ -42,10 +42,16 @@ Add settings in your user or workspace settings:
 ## Commands
 - `appleContainer.system.start`: Start the container system service
 - `appleContainer.system.stop`: Stop the container system service
-- `appleContainer.system.restart`: Restart the container system service
+- `appleContainer.system.restart`: Restart the container system service (stop then start)
+- `appleContainer.system.refresh`: Refresh service status and version information
+- `appleContainer.container.start`: Start a selected container
+- `appleContainer.container.stop`: Stop a selected container
+- `appleContainer.container.restart`: Restart a selected container
+- `appleContainer.containers.refresh`: Refresh the containers list (disabled when the service is stopped)
+- `appleContainer.images.refresh`: Refresh the images list (disabled when the service is stopped)
+- `appleContainer.refresh`: Refresh all views (System, Images, Containers)
+- `appleContainer.system.upgrade`: Open the latest GitHub release for the container CLI
 - `appleContainer.update.check`: Check for a new CLI version
-- `appleContainer.update.downloadLatest`: Download the latest CLI (manual install)
-- `appleContainer.refresh`: Refresh containers and images
 
 ## Roadmap (High Level)
 - M0: CLI interface validation and system control — in progress

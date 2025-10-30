@@ -208,6 +208,18 @@ export class ContainerCli {
     return this.mockImages();
   }
 
+  async startContainer(containerId: string): Promise<void> {
+    await this.exec(['start', containerId]);
+  }
+
+  async stopContainer(containerId: string): Promise<void> {
+    await this.exec(['stop', containerId]);
+  }
+
+  async restartContainer(containerId: string): Promise<void> {
+    await this.exec(['restart', containerId]);
+  }
+
   async ensureAvailable(): Promise<void> {
     try {
       await this.version();
