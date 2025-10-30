@@ -1,13 +1,13 @@
 import * as vscode from 'vscode';
 
-import { ContainerCli } from './cli/containerCli';
+import { ContainerCli, ImageSummary } from './cli/containerCli';
 import { AppleContainerError, ErrorCode } from './core/errors';
 import { CacheStore } from './core/cache';
 import { events } from './core/events';
 import { log, logError } from './core/logger';
 import { StatusBarManager } from './core/statusBar';
 import { handleWorkspaceAutoStart } from './core/workspaceAutoStart';
-import { ImagesTreeProvider } from './views/imageTree';
+import { ImageTreeItem, ImagesTreeProvider } from './views/imageTree';
 import { ContainerTreeItem, ContainersTreeProvider } from './views/containerTree';
 import { SystemTreeProvider, SystemTreeItem } from './views/systemTree';
 import { fetchLatestRelease } from './updater/githubClient';
@@ -149,6 +149,42 @@ function registerCommands(
         await cli.restartContainer(item.container.id);
         await containersProvider.refresh();
         void vscode.window.showInformationMessage(`Container ${identifier} restarted.`);
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.container.remove', async (item?: ContainerTreeItem) => {
+      if (!item?.container || item.container.id === 'empty-containers') {
+        return;
+      }
+
+      const identifier = item.container.name ?? item.container.id;
+      if (isContainerRunningStatus(item.container.status)) {
+        void vscode.window.showWarningMessage(`Container ${identifier} is running. Stop it before removal.`);
+        return;
+      }
+
+      await withCommandHandling(`Removing container ${identifier}`, async () => {
+        await cli.removeContainer(item.container.id);
+        await containersProvider.refresh();
+        void vscode.window.showInformationMessage(`Container ${identifier} removed.`);
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.image.remove', async (item?: ImageTreeItem) => {
+      if (!item?.image || item.image.id === 'empty-images') {
+        return;
+      }
+
+      if (item.image.inUse) {
+        const reference = [item.image.repository, item.image.tag].filter(Boolean).join(':') || item.image.id;
+        void vscode.window.showWarningMessage(`Image ${reference} is currently in use and cannot be removed.`);
+        return;
+      }
+
+      const references = buildImageRemovalReferences(item.image);
+
+      await withCommandHandling(`Removing image ${references[0] ?? item.image.id}`, async () => {
+        await cli.removeImage(references);
+        await imagesProvider.refresh();
+        void vscode.window.showInformationMessage(`Image ${references[0] ?? item.image.id} removed.`);
       });
     }),
     vscode.commands.registerCommand('appleContainer.refresh', async () => {
@@ -328,4 +364,35 @@ async function withCommandHandling(message: string, action: () => Promise<void>)
     const containerError = error instanceof AppleContainerError ? error : new AppleContainerError('Command failed', ErrorCode.CommandFailed, error);
     events.emit('error', containerError);
   }
+}
+
+function isContainerRunningStatus(status?: string): boolean {
+  if (!status) {
+    return false;
+  }
+  const normalized = status.toLowerCase();
+  return normalized.includes('running') || normalized.startsWith('up');
+}
+
+function buildImageRemovalReferences(image: ImageSummary): string[] {
+  const references = new Set<string>();
+  const repository = image.repository?.trim();
+  const tag = image.tag?.trim();
+  const digest = image.digest?.trim();
+  const id = image.id?.trim();
+
+  if (repository && tag) {
+    references.add(`${repository}:${tag}`);
+  }
+  if (repository) {
+    references.add(repository);
+  }
+  if (digest) {
+    references.add(digest);
+  }
+  if (id) {
+    references.add(id);
+  }
+
+  return Array.from(references);
 }

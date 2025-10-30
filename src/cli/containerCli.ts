@@ -32,6 +32,7 @@ export interface ImageSummary {
   size?: string;
   createdAt?: string;
   digest?: string;
+  inUse?: boolean;
 }
 
 export interface ExecOptions {
@@ -217,7 +218,33 @@ export class ContainerCli {
   }
 
   async restartContainer(containerId: string): Promise<void> {
-    await this.exec(['restart', containerId]);
+    await this.exec(['stop', containerId]);
+    await this.waitForContainerStopped(containerId);
+    await this.exec(['start', containerId]);
+  }
+
+  async removeContainer(containerId: string): Promise<void> {
+    const variants: string[][] = [
+      ['rm', containerId],
+      ['remove', containerId],
+      ['delete', containerId]
+    ];
+    await this.execWithFallback(variants);
+  }
+
+  async removeImage(references: string[]): Promise<void> {
+    const uniqueRefs = Array.from(new Set(references.map(ref => ref?.trim()).filter((ref): ref is string => Boolean(ref && ref.length > 0))));
+    if (uniqueRefs.length === 0) {
+      throw new AppleContainerError('No image references provided for removal', ErrorCode.Unknown);
+    }
+
+    const variants: string[][] = [];
+    for (const ref of uniqueRefs) {
+      variants.push(['image', 'rm', ref]);
+      variants.push(['image', 'remove', ref]);
+      variants.push(['image', 'delete', ref]);
+    }
+    await this.execWithFallback(variants);
   }
 
   async ensureAvailable(): Promise<void> {
@@ -330,7 +357,13 @@ export class ContainerCli {
       record['containerId'],
       record['containerID'],
       record['uuid'],
-      record['UUID']
+      record['UUID'],
+      this.getNestedString(record, ['configuration', 'id']),
+      this.getNestedString(record, ['configuration', 'identifier']),
+      this.getNestedString(record, ['metadata', 'id']),
+      this.getNestedString(record, ['metadata', 'identifier']),
+      this.getNestedString(record, ['metadata', 'uuid']),
+      this.getNestedString(record, ['container', 'id'])
     ) ?? `container-${index}`;
 
     const name = this.firstString(
@@ -919,5 +952,54 @@ export class ContainerCli {
     const message = stderr && stderr.length > 0 ? stderr : err?.message ?? 'Unknown CLI error';
     logError(`CLI command failed: ${args.join(' ')}`, error);
     return new AppleContainerError(message, ErrorCode.CommandFailed, error);
+  }
+
+  private async execWithFallback(variants: string[][]): Promise<void> {
+    let lastError: unknown;
+    for (const args of variants) {
+      try {
+        await this.exec(args);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw toAppleContainerError(lastError ?? new AppleContainerError('All CLI command variants failed', ErrorCode.CommandFailed));
+  }
+
+  private async waitForContainerStopped(containerId: string, options: { timeoutMs?: number; pollIntervalMs?: number } = {}): Promise<void> {
+    const timeoutMs = options.timeoutMs ?? 15000;
+    const pollIntervalMs = options.pollIntervalMs ?? 500;
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      const containers = await this.listContainers();
+      const target = containers.find(container => container.id === containerId || container.name === containerId);
+      if (!target) {
+        return;
+      }
+      if (!this.isContainerRunning(target.status)) {
+        return;
+      }
+      await this.delay(pollIntervalMs);
+    }
+
+    throw new AppleContainerError(`Timed out waiting for container ${containerId} to stop`, ErrorCode.CommandFailed);
+  }
+
+  private isContainerRunning(status?: string): boolean {
+    if (!status) {
+      return false;
+    }
+    const normalized = status.toLowerCase();
+    if (normalized.includes('running') || normalized.startsWith('up')) {
+      return true;
+    }
+    return false;
+  }
+
+  private async delay(ms: number): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, ms));
   }
 }

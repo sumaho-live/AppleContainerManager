@@ -27,7 +27,13 @@ export class ContainerTreeItem extends vscode.TreeItem {
     const normalizedStatus = statusLabel.toLowerCase();
     const isRunning = normalizedStatus.startsWith('running') || normalizedStatus === 'up';
     const baseContext = isRunning ? 'container-running' : 'container-stopped';
-    this.contextValue = this.actionsEnabled ? baseContext : `${baseContext}-disabled`;
+    if (!this.actionsEnabled) {
+      this.contextValue = `${baseContext}-disabled`;
+    } else if (isRunning) {
+      this.contextValue = baseContext;
+    } else {
+      this.contextValue = `${baseContext}-deletable`;
+    }
     this.iconPath = isRunning ? new vscode.ThemeIcon('debug-start') : new vscode.ThemeIcon('debug-stop');
   }
 

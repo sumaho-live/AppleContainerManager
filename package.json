@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.2.2",
+  "version": "0.2.5",
   "publisher": "apple-container",
   "engines": {
     "vscode": ">=1.95.0"
@@ -25,8 +25,10 @@
     "onCommand:appleContainer.container.start",
     "onCommand:appleContainer.container.stop",
     "onCommand:appleContainer.container.restart",
+    "onCommand:appleContainer.container.remove",
     "onCommand:appleContainer.system.upgrade",
     "onCommand:appleContainer.refresh",
+    "onCommand:appleContainer.image.remove",
     "onCommand:appleContainer.update.check",
     "workspaceContains:.vscode/settings.json"
   ],
@@ -138,7 +140,7 @@
         },
         {
           "command": "appleContainer.container.start",
-          "when": "view == appleContainerContainers && viewItem == container-stopped",
+          "when": "view == appleContainerContainers && viewItem =~ /container-stopped($|-deletable)/",
           "group": "inline@1"
         },
         {
@@ -149,6 +151,16 @@
         {
           "command": "appleContainer.container.restart",
           "when": "view == appleContainerContainers && viewItem == container-running",
+          "group": "inline@2"
+        },
+        {
+          "command": "appleContainer.container.remove",
+          "when": "view == appleContainerContainers && viewItem == container-stopped-deletable",
+          "group": "inline@3"
+        },
+        {
+          "command": "appleContainer.image.remove",
+          "when": "view == appleContainerImages && viewItem == image-deletable",
           "group": "inline@2"
         },
         {
@@ -189,34 +201,44 @@
           "group": "appleContainer@6"
         },
         {
-          "command": "appleContainer.system.refresh",
+          "command": "appleContainer.container.remove",
           "when": "true",
           "group": "appleContainer@7"
         },
         {
-          "command": "appleContainer.containers.refresh",
+          "command": "appleContainer.image.remove",
           "when": "true",
           "group": "appleContainer@8"
         },
         {
-          "command": "appleContainer.images.refresh",
+          "command": "appleContainer.system.refresh",
           "when": "true",
           "group": "appleContainer@9"
         },
         {
-          "command": "appleContainer.refresh",
+          "command": "appleContainer.containers.refresh",
           "when": "true",
           "group": "appleContainer@10"
         },
         {
-          "command": "appleContainer.system.upgrade",
+          "command": "appleContainer.images.refresh",
           "when": "true",
           "group": "appleContainer@11"
         },
         {
-          "command": "appleContainer.update.check",
+          "command": "appleContainer.refresh",
           "when": "true",
           "group": "appleContainer@12"
+        },
+        {
+          "command": "appleContainer.system.upgrade",
+          "when": "true",
+          "group": "appleContainer@13"
+        },
+        {
+          "command": "appleContainer.update.check",
+          "when": "true",
+          "group": "appleContainer@14"
         }
       ]
     },
@@ -274,6 +296,18 @@
         "title": "Restart Container",
         "category": "Apple Container",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "appleContainer.container.remove",
+        "title": "Remove Container",
+        "category": "Apple Container",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "appleContainer.image.remove",
+        "title": "Remove Image",
+        "category": "Apple Container",
+        "icon": "$(trash)"
       },
       {
         "command": "appleContainer.refresh",

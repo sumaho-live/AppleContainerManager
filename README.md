@@ -6,7 +6,8 @@ A VS Code extension for macOS that provides visual management for Apple’s nati
 
 ## Features
 - Activity Bar view: “Apple Containers” with System, Images, and Containers trees
-- Inline container controls: start / stop / restart directly from hover icons
+- Images view surfaces repository and tag details for quick version checks, including removal for unused images
+- Inline container controls: start / stop / restart / remove directly from hover icons (removal only when stopped)
 - Dedicated System view with Start / Stop / Restart controls and status bar integration
 - Offline cache of system version, images, and containers for quick read-only access when the service is stopped
 - Detects container CLI version, checks GitHub for the latest release, and surfaces inline upgrade actions
@@ -46,7 +47,9 @@ Add settings in your user or workspace settings:
 - `appleContainer.system.refresh`: Refresh service status and version information
 - `appleContainer.container.start`: Start a selected container
 - `appleContainer.container.stop`: Stop a selected container
-- `appleContainer.container.restart`: Restart a selected container
+- `appleContainer.container.restart`: Restart a selected container (stop, wait for shutdown, then start)
+- `appleContainer.container.remove`: Remove a stopped container
+- `appleContainer.image.remove`: Remove an unused image
 - `appleContainer.containers.refresh`: Refresh the containers list (disabled when the service is stopped)
 - `appleContainer.images.refresh`: Refresh the images list (disabled when the service is stopped)
 - `appleContainer.refresh`: Refresh all views (System, Images, Containers)

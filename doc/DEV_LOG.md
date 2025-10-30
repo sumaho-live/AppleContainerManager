@@ -1,5 +1,33 @@
 # Development Log
 
+## 2025-10-30 — Removal actions and restart guard
+
+### Summary
+- Added inline container/image removal commands with context-aware availability (containers must be stopped, images must be unused) and CLI support for the delete operations.
+- Ensured container restart waits for the stop operation to settle before triggering start to avoid transient CLI errors.
+- Surfaced image usage tracking in the Images view so tags indicate when an image is locked by a running container.
+
+### Outstanding Follow-ups
+- Consider prompting for confirmation before destructive actions and exposing undo guidance in documentation.
+
+## 2025-10-30 — Container identifier fix
+
+### Summary
+- Corrected container listing to read identifiers from configuration metadata so start/stop/restart actions target the actual container instead of a fallback ID.
+- Bumped the VS Code extension version and verified packaging to prep the new build.
+
+### Outstanding Follow-ups
+- Watch for additional CLI schema variations (e.g., nested identifier fields) during broader testing to ensure IDs remain stable.
+
+## 2025-10-30 — Image tags and restart flow
+
+### Summary
+- Surfaced container image tags directly in the Images view listings for quicker identification of versions referenced by the CLI.
+- Changed container restarts to invoke an explicit stop followed by start to mirror the CLI guidance.
+
+### Outstanding Follow-ups
+- Monitor CLI changes for additional metadata fields that should appear alongside repository/tag details.
+
 ## 2025-10-29 — Cached data and inline container controls
 
 ### Summary
