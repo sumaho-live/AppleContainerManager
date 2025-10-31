@@ -59,4 +59,4 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         if: env.VSCE_PAT != ''
-        run: pnpm exec vsce publish --pat "$VSCE_PAT"
+        run: pnpm exec vsce publish --no-dependencies --pat "$VSCE_PAT"
