@@ -1,11 +1,16 @@
 import * as vscode from 'vscode';
 
 import { ContainerCli, ContainerSummary } from '../cli/containerCli';
+import { ContainerLogManager } from '../core/containerLogs';
 import { events, SystemStatusPayload } from '../core/events';
 import { log, logError } from '../core/logger';
 
 export class ContainerTreeItem extends vscode.TreeItem {
-  constructor(public readonly container: ContainerSummary, private readonly actionsEnabled: boolean) {
+  constructor(
+    public readonly container: ContainerSummary,
+    private readonly actionsEnabled: boolean,
+    private readonly isStreamingLogs: boolean
+  ) {
     const label = container.name?.trim().length ? container.name : container.id ?? 'Unnamed container';
     super(label, vscode.TreeItemCollapsibleState.None);
 
@@ -32,6 +37,12 @@ export class ContainerTreeItem extends vscode.TreeItem {
     const baseContext = isRunning ? 'container-running' : 'container-stopped';
     if (!this.actionsEnabled) {
       this.contextValue = `${baseContext}-disabled`;
+    } else if (this.isStreamingLogs) {
+      if (isRunning) {
+        this.contextValue = `${baseContext}-logging`;
+      } else {
+        this.contextValue = `${baseContext}-deletable-logging`;
+      }
     } else if (isRunning) {
       this.contextValue = baseContext;
     } else {
@@ -53,7 +64,8 @@ export class ContainerTreeItem extends vscode.TreeItem {
       container.volumes ? `Volumes: ${container.volumes}` : undefined,
       container.os ? `OS: ${container.os}` : undefined,
       container.arch ? `Arch: ${container.arch}` : undefined,
-      container.createdAt ? `Created: ${container.createdAt}` : undefined
+      container.createdAt ? `Created: ${container.createdAt}` : undefined,
+      `Logs: ${this.isStreamingLogs ? 'Streaming to Output' : 'Idle'}`
     ].filter(Boolean);
     return lines.join('\n');
   }
@@ -78,14 +90,17 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
   private serviceRunning = false;
   private statusKnown = false;
   private readonly statusListener: (payload: SystemStatusPayload) => void;
+  private readonly logStateListener: vscode.Disposable;
 
   constructor(
-    private readonly cli: ContainerCli
+    private readonly cli: ContainerCli,
+    private readonly logManager: ContainerLogManager
   ) {
     this.statusListener = payload => {
       this.statusKnown = true;
       this.serviceRunning = payload.running;
       if (!payload.running) {
+        this.logManager.stopAll();
         log('System reported stopped; clearing container list to avoid stale data');
         this.items = [];
         events.emit('data:containers', []);
@@ -95,6 +110,9 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
       this.emitter.fire();
     };
     events.on('system:status', this.statusListener);
+    this.logStateListener = this.logManager.onDidChangeState(() => {
+      this.emitter.fire();
+    });
   }
 
   readonly onDidChangeTreeData: vscode.Event<ContainerTreeItem | undefined | null | void> = this.emitter.event;
@@ -110,6 +128,15 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
     try {
       const containers = await this.cli.listContainers();
       this.items = containers;
+      const activeStreams = this.logManager.getActiveStreams();
+      if (activeStreams.length > 0) {
+        const liveIds = new Set(containers.map(container => container.id));
+        for (const activeId of activeStreams) {
+          if (!liveIds.has(activeId)) {
+            this.logManager.stopStreaming(activeId);
+          }
+        }
+      }
       events.emit('data:containers', containers);
       log(`Containers refreshed (${containers.length})`);
       if (containers.length > 0) {
@@ -132,6 +159,7 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
       return [
         new ContainerTreeItem(
           { id: 'empty-containers', name: 'Detecting containers…', image: 'n/a', status: 'Pending' },
+          false,
           false
         )
       ];
@@ -141,6 +169,7 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
       return [
         new ContainerTreeItem(
           { id: 'empty-containers', name: 'Start the Apple container system to view containers', image: 'n/a', status: 'Unavailable' },
+          false,
           false
         )
       ];
@@ -150,16 +179,18 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
       return [
         new ContainerTreeItem(
           { id: 'empty-containers', name: 'No containers found', image: 'n/a', status: 'Unavailable' },
+          false,
           false
         )
       ];
     }
 
-    return this.items.map(item => new ContainerTreeItem(item, this.serviceRunning));
+    return this.items.map(item => new ContainerTreeItem(item, this.serviceRunning, this.logManager.isStreaming(item.id)));
   }
 
   dispose(): void {
     events.off('system:status', this.statusListener);
     this.emitter.dispose();
+    this.logStateListener.dispose();
   }
 }

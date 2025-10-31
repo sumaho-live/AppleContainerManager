@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { ChildProcessWithoutNullStreams, execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { AppleContainerError, ErrorCode, toAppleContainerError } from '../core/errors';
@@ -224,6 +224,28 @@ export class ContainerCli {
     }
 
     return this.mockImages();
+  }
+
+  streamContainerLogs(containerId: string, options: { follow?: boolean; additionalArgs?: string[] } = {}): ChildProcessWithoutNullStreams {
+    const follow = options.follow ?? true;
+    const args = ['logs', containerId];
+    if (follow) {
+      args.push('--follow');
+    }
+    if (options.additionalArgs?.length) {
+      args.push(...options.additionalArgs);
+    }
+
+    logCommand(this.binary, args);
+    const child = spawn(this.binary, args, {
+      env: process.env
+    });
+
+    child.on('error', error => {
+      logError(`Failed to stream logs for container ${containerId}`, error);
+    });
+
+    return child;
   }
 
   async startContainer(containerId: string): Promise<void> {

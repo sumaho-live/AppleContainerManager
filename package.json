@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "publisher": "Awei-Sumaho",
   "author": {
     "email": "awei@sumaho.live",
@@ -56,6 +56,8 @@
     "onCommand:appleContainer.images.refresh",
     "onCommand:appleContainer.container.start",
     "onCommand:appleContainer.container.stop",
+    "onCommand:appleContainer.container.logs.start",
+    "onCommand:appleContainer.container.logs.stop",
     "onCommand:appleContainer.container.remove",
     "onCommand:appleContainer.container.create",
     "onCommand:appleContainer.system.upgrade",
@@ -88,6 +90,22 @@
           "type": "number",
           "default": 5000,
           "description": "Polling interval in milliseconds for refreshing container and image lists."
+        },
+        "appleContainer.logs.showTimestamps": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include a localized timestamp prefix for each log entry."
+        },
+        "appleContainer.logs.highlightKeywords": {
+          "type": "boolean",
+          "default": true,
+          "description": "Apply color highlighting to common log severity keywords (ERROR/WARN/INFO/etc.)."
+        },
+        "appleContainer.logs.minimumLevel": {
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error", "success"],
+          "default": "info",
+          "description": "Lowest log level emitted to the Output channel from the Apple Container plugin."
         }
       }
     },
@@ -168,17 +186,27 @@
         },
         {
           "command": "appleContainer.container.start",
-          "when": "view == appleContainerContainers && viewItem =~ /container-stopped($|-deletable)/",
+          "when": "view == appleContainerContainers && viewItem =~ /container-stopped(-deletable)?(-logging)?$/",
           "group": "inline@1"
         },
         {
           "command": "appleContainer.container.stop",
-          "when": "view == appleContainerContainers && viewItem == container-running",
+          "when": "view == appleContainerContainers && viewItem =~ /container-running(-logging)?$/",
           "group": "inline@1"
         },
         {
+          "command": "appleContainer.container.logs.start",
+          "when": "view == appleContainerContainers && viewItem =~ /container-running$/",
+          "group": "inline@2"
+        },
+        {
+          "command": "appleContainer.container.logs.stop",
+          "when": "view == appleContainerContainers && viewItem =~ /-logging$/",
+          "group": "inline@2"
+        },
+        {
           "command": "appleContainer.container.remove",
-          "when": "view == appleContainerContainers && viewItem == container-stopped-deletable",
+          "when": "view == appleContainerContainers && viewItem =~ /container-stopped-deletable(-logging)?$/",
           "group": "inline@3"
         },
         {
@@ -302,6 +330,18 @@
         "title": "Stop Container",
         "category": "Apple Container",
         "icon": "$(debug-stop)"
+      },
+      {
+        "command": "appleContainer.container.logs.start",
+        "title": "Stream Container Logs",
+        "category": "Apple Container",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "appleContainer.container.logs.stop",
+        "title": "Stop Container Log Stream",
+        "category": "Apple Container",
+        "icon": "$(sync-ignored)"
       },
       {
         "command": "appleContainer.container.remove",

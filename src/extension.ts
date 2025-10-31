@@ -10,19 +10,24 @@ import { ContainerTreeItem, ContainersTreeProvider } from './views/containerTree
 import { ContainerCreateWizard } from './views/containerCreateWizard';
 import { SystemTreeProvider, SystemTreeItem } from './views/systemTree';
 import { fetchLatestRelease } from './updater/githubClient';
+import { ContainerLogManager } from './core/containerLogs';
+import { logFormatter } from './core/logFormatter';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   log('Activating Apple Container Manager extension');
 
   const cli = new ContainerCli();
   const systemProvider = new SystemTreeProvider();
-  const containersProvider = new ContainersTreeProvider(cli);
+  const logManager = new ContainerLogManager(cli);
+  const containersProvider = new ContainersTreeProvider(cli, logManager);
   const imagesProvider = new ImagesTreeProvider(cli);
 
   context.subscriptions.push(
     systemProvider,
     containersProvider,
     imagesProvider,
+    logManager,
+    logFormatter,
     vscode.window.registerTreeDataProvider('appleContainerSystem', systemProvider),
     vscode.window.registerTreeDataProvider('appleContainerContainers', containersProvider),
     vscode.window.registerTreeDataProvider('appleContainerImages', imagesProvider)
@@ -34,7 +39,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await refreshSystemStatus(cli, containersProvider, imagesProvider, { refreshResources: true, requestedRunning: true });
   }
 
-  registerCommands(context, cli, systemProvider, containersProvider, imagesProvider);
+  registerCommands(context, cli, systemProvider, containersProvider, imagesProvider, logManager);
   registerErrorHandler(context);
 }
 
@@ -65,7 +70,8 @@ function registerCommands(
   cli: ContainerCli,
   systemProvider: SystemTreeProvider,
   containersProvider: ContainersTreeProvider,
-  imagesProvider: ImagesTreeProvider
+  imagesProvider: ImagesTreeProvider,
+  logManager: ContainerLogManager
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('appleContainer.system.start', async () => {
@@ -118,6 +124,42 @@ function registerCommands(
         await cli.stopContainer(item.container.id);
         await containersProvider.refresh();
         void vscode.window.showInformationMessage(`Container ${identifier} stopped.`);
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.container.logs.start', async (item?: ContainerTreeItem) => {
+      if (!item?.container || item.container.id === 'empty-containers') {
+        return;
+      }
+      const identifier = item.container.name ?? item.container.id;
+      await withCommandHandling(`Starting log stream for ${identifier}`, async () => {
+        if (logManager.isStreaming(item.container.id)) {
+          void vscode.window.showInformationMessage(`Already streaming logs for ${identifier}.`);
+          return;
+        }
+        const started = await logManager.startStreaming(item.container.id, identifier);
+        if (started) {
+          void vscode.window.showInformationMessage(`Streaming logs for ${identifier}.`);
+        } else {
+          void vscode.window.showWarningMessage(`Failed to start log stream for ${identifier}.`);
+        }
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.container.logs.stop', async (item?: ContainerTreeItem) => {
+      if (!item?.container || item.container.id === 'empty-containers') {
+        return;
+      }
+      const identifier = item.container.name ?? item.container.id;
+      await withCommandHandling(`Stopping log stream for ${identifier}`, async () => {
+        if (!logManager.isStreaming(item.container.id)) {
+          void vscode.window.showInformationMessage(`No active log stream for ${identifier}.`);
+          return;
+        }
+        const stopped = logManager.stopStreaming(item.container.id);
+        if (stopped) {
+          void vscode.window.showInformationMessage(`Stopping log stream for ${identifier}…`);
+        } else {
+          void vscode.window.showWarningMessage(`Unable to stop log stream for ${identifier}.`);
+        }
       });
     }),
     vscode.commands.registerCommand('appleContainer.container.remove', async (item?: ContainerTreeItem) => {

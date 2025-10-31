@@ -8,6 +8,7 @@ A VS Code extension for macOS that provides visual management for Apple’s nati
 - Activity Bar view: “Apple Containers” with System, Images, and Containers trees
 - Images view surfaces repository and tag details for quick version checks, including removal for unused images
 - Containers view now supports inline start / stop / remove controls with rich hover summaries (image, CPU / memory, ports)
+- Opt-in log streaming per container with hover action, configurable timestamps, severity filters, and inline keyword highlighting in the Output channel
 - Dedicated System view with start / stop controls and update awareness
 - One-click “+” toolbar button launches a two-step container creation wizard (image & resources, then ports / volumes / extra args)
 - Real-time views that clear stale data and prompt to start the system service when it is offline
@@ -37,7 +38,10 @@ Add settings in your user or workspace settings:
   "appleContainer.update.mode": "notify",
   "appleContainer.update.checkIntervalHours": 24,
   "appleContainer.system.autoStartOnWorkspaceOpen": false,
-  "appleContainer.pollIntervalMs": 5000
+  "appleContainer.pollIntervalMs": 5000,
+  "appleContainer.logs.showTimestamps": true,
+  "appleContainer.logs.highlightKeywords": true,
+  "appleContainer.logs.minimumLevel": "info"
 }
 ```
 
@@ -48,6 +52,8 @@ Add settings in your user or workspace settings:
 - `appleContainer.container.create`: Launch the container creation wizard
 - `appleContainer.container.start`: Start a selected container
 - `appleContainer.container.stop`: Stop a selected container
+- `appleContainer.container.logs.start`: Begin streaming logs for a running container to the Output panel
+- `appleContainer.container.logs.stop`: Stop streaming logs for a running container
 - `appleContainer.container.remove`: Remove a stopped container
 - `appleContainer.image.remove`: Remove an unused image
 - `appleContainer.containers.refresh`: Refresh the containers list (disabled when the service is stopped)

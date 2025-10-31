@@ -1,5 +1,28 @@
 # Development Log
 
+## 2025-10-31 — v0.4 release preparation
+
+### Summary
+- Bumped the extension version to `0.4.0` and refreshed README/CHANGELOG language to reflect the new logging capabilities.
+- Regenerated release notes and verified lint/package workflows in preparation for distributing the new build.
+- Captured the log configuration surface (timestamps, keyword highlighting, minimum level) for documentation parity.
+
+### Outstanding Follow-ups
+- Publish the packaged `.vsix` and tag the repository with `v0.4.0`.
+- Capture usage analytics or user feedback on the revamped logging experience.
+
+## 2025-10-31 — Container log streaming and formatting
+
+### Summary
+- Added a ContainerLogManager to stream CLI output with start/stop controls per container, including state preservation in the tree view and automatic cleanup when containers disappear.
+- Provided shared formatting for system-level logs while leaving container output raw aside from `[containerId]` tagging, matching the requested minimalist display.
+- Removed ANSI colouring from plugin log entries so Output channel lines remain plain text while still conveying tags/levels.
+- Introduced user settings to toggle timestamp display, select minimum plugin log level (default `info`), and wired new commands/menus for hover-triggered log viewing.
+
+### Outstanding Follow-ups
+- Evaluate adding a history export command to leverage the stored plain-text log entries.
+- Consider exposing additional formatting options (custom keyword list, timestamp precision) based on user feedback.
+
 ## 2025-10-31 — Removed persistent cache after UX regression
 
 ### Summary

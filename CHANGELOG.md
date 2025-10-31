@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.4.0] - 2025-10-31
+### Added
+- Container log streaming with start/stop controls directly from the Containers view backed by a new `ContainerLogManager`.
+- Output channel formatting features including optional timestamps, keyword highlighting, and minimum log level filtering settings.
+
+### Changed
+- Plugin log entries now render as plain text without embedded ANSI colour codes while preserving severity tags.
+- Container and image tree views clear stale data when the system service stops to avoid showing outdated inventory.
+
 ## [0.3.1] - 2025-10-31
 ### Removed
 - Removed the persistent cache for system, container, and image data to avoid stale information when the service is stopped.
@@ -65,6 +74,7 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - Initial alpha validation for the Apple `container` CLI integration and VS Code extension scaffolding.
 
+[0.4.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.4.0
 [0.3.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.3.1
 [0.2.7]: https://github.com/sumaho-live/AppleContainerManager/tree/0.2.7
 [0.2.6]: https://github.com/sumaho-live/AppleContainerManager/tree/0.2.6
