@@ -1,6 +1,5 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import * as os from 'node:os';
 
 import { AppleContainerError, ErrorCode, toAppleContainerError } from '../core/errors';
 import { log, logCommand, logError } from '../core/logger';
@@ -339,7 +338,6 @@ export class ContainerCli {
   }
 
   private mockContainers(): ContainerSummary[] {
-    //const user = os.userInfo().username;
     return [];
   }
 
