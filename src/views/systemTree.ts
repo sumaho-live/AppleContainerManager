@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 
-import { CacheStore } from '../core/cache';
 import { events, SystemStatusPayload } from '../core/events';
 import { log } from '../core/logger';
 
@@ -43,17 +42,13 @@ export class SystemTreeProvider implements vscode.TreeDataProvider<SystemTreeIte
   private latestVersion: string | undefined;
   private latestUrl: string | undefined;
   private updateAvailable = false;
+  private statusKnown = false;
   private readonly statusListener: (payload: SystemStatusPayload) => void;
 
-  constructor(private readonly cache: CacheStore) {
-    const cached = this.cache.getSystemInfo();
-    this.localVersion = cached.localVersion ?? this.localVersion;
-    this.latestVersion = cached.latestVersion ?? this.latestVersion;
-    this.latestUrl = cached.latestUrl ?? this.latestUrl;
-    this.updateAvailable = cached.updateAvailable ?? this.updateAvailable;
-
+  constructor() {
     this.statusListener = payload => {
       log(`System status event received (running=${payload.running}, localVersion=${payload.localVersion ?? 'unknown'}, latest=${payload.latestVersion ?? 'unknown'}, updateAvailable=${payload.updateAvailable ?? false})`);
+      this.statusKnown = true;
       this.running = payload.running;
       if (payload.localVersion !== undefined) {
         this.localVersion = payload.localVersion;
@@ -82,6 +77,28 @@ export class SystemTreeProvider implements vscode.TreeDataProvider<SystemTreeIte
   }
 
   getChildren(): vscode.ProviderResult<SystemTreeItem[]> {
+    if (!this.statusKnown) {
+      const nodes: SystemNode[] = [
+        {
+          id: 'system-status',
+          label: 'System Service: Detecting…',
+          description: undefined,
+          context: 'system-detecting',
+          iconId: 'sync',
+          tooltip: 'Awaiting status from Apple container CLI'
+        },
+        {
+          id: 'system-latest',
+          label: 'GitHub Release: Checking…',
+          description: 'Pending',
+          context: 'system-upgrade-unknown',
+          iconId: 'cloud',
+          tooltip: 'Latest release information will appear here once detected.'
+        }
+      ];
+      return nodes.map(node => new SystemTreeItem(node));
+    }
+
     const nodes: SystemNode[] = [
       {
         id: 'system-status',
@@ -131,8 +148,9 @@ export class SystemTreeProvider implements vscode.TreeDataProvider<SystemTreeIte
   }
 
   private syncContexts(): void {
-    void vscode.commands.executeCommand('setContext', 'appleContainer.system.running', this.running);
-    void vscode.commands.executeCommand('setContext', 'appleContainer.system.updateAvailable', this.updateAvailable);
-    void vscode.commands.executeCommand('setContext', 'appleContainer.system.hasLatest', Boolean(this.latestVersion));
+    const running = this.statusKnown && this.running;
+    void vscode.commands.executeCommand('setContext', 'appleContainer.system.running', running);
+    void vscode.commands.executeCommand('setContext', 'appleContainer.system.updateAvailable', this.statusKnown && this.updateAvailable);
+    void vscode.commands.executeCommand('setContext', 'appleContainer.system.hasLatest', this.statusKnown && Boolean(this.latestVersion));
   }
 }

@@ -1,0 +1,58 @@
+name: Publish Apple Container Manager
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '9'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run lint checks
+        run: pnpm run lint
+
+      - name: Compile extension
+        run: pnpm run compile
+
+      - name: Package VSIX artifact
+        run: pnpm exec vsce package --no-dependencies
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-container-manager
+          path: '*.vsix'
+
+      - name: Ensure VSCE_PAT secret is available
+        if: env.VSCE_PAT == '' || env.VSCE_PAT == null
+        run: |
+          echo "VSCE_PAT secret is required to publish the extension." >&2
+          exit 1
+
+      - name: Publish to VS Code Marketplace
+        if: env.VSCE_PAT != ''
+        run: pnpm exec vsce publish --pat "$VSCE_PAT"

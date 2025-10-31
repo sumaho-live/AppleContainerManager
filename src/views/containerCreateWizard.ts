@@ -92,7 +92,7 @@ export class ContainerCreateWizard {
     const selection = await vscode.window.showQuickPick<BasicPickItem>(
       this.buildBasicPickItems(state),
       {
-        placeHolder: '创建容器 (1/2)：配置镜像、名称与资源 (Esc 取消)',
+        placeHolder: 'Create Container (1/2): configure image, name, and resources (Esc to cancel)',
         ignoreFocusOut: true,
         matchOnDetail: true
       }
@@ -104,7 +104,7 @@ export class ContainerCreateWizard {
 
     if (selection.key === 'next') {
       if (!state.image || !state.name) {
-        void vscode.window.showWarningMessage('请先选择镜像并填写容器名称。');
+        void vscode.window.showWarningMessage('Select an image and enter a container name first.');
         return this.collectBasicSettings(state);
       }
       return true;
@@ -118,7 +118,7 @@ export class ContainerCreateWizard {
     const selection = await vscode.window.showQuickPick<AdvancedPickItem>(
       this.buildAdvancedPickItems(state),
       {
-        placeHolder: '创建容器 (2/2)：配置端口、卷与其他参数 (Esc 取消)',
+        placeHolder: 'Create Container (2/2): configure ports, volumes, and other options (Esc to cancel)',
         ignoreFocusOut: true,
         matchOnDetail: true
       }
@@ -140,36 +140,36 @@ export class ContainerCreateWizard {
     const items: BasicPickItem[] = [
       {
         key: 'image',
-        label: '镜像',
-        description: state.image ?? '点击选择或输入镜像名称'
+        label: 'Image',
+        description: state.image ?? 'Select or enter an image name'
       },
       {
         key: 'name',
-        label: '容器名称',
-        description: state.name ?? '点击输入容器名称'
+        label: 'Container name',
+        description: state.name ?? 'Enter a container name'
       },
       {
         key: 'arch',
-        label: 'CPU 架构',
+        label: 'CPU architecture',
         description: state.arch
       },
       {
         key: 'cpus',
-        label: 'CPU 核数',
+        label: 'CPU cores',
         description: `${state.cpus}`
       },
       {
         key: 'memory',
-        label: '内存限制',
+        label: 'Memory limit',
         description: state.memory
       }
     ];
 
     items.push({
       key: 'next',
-      label: '下一步 →',
-      description: state.image && state.name ? '继续配置端口、卷等高级选项' : '需要先填写镜像与容器名称',
-      detail: state.image && state.name ? undefined : '已填写项会保留，可继续补充后再进行下一步',
+      label: 'Next →',
+      description: state.image && state.name ? 'Continue to configure ports, volumes, and advanced options' : 'Image and container name are required first',
+      detail: state.image && state.name ? undefined : 'Your current entries are kept; complete the missing fields to continue',
       alwaysShow: true
     });
 
@@ -180,31 +180,31 @@ export class ContainerCreateWizard {
     return [
       {
         key: 'ports',
-        label: '端口映射',
-        description: state.ports.length > 0 ? state.ports.join(', ') : '未设置'
+        label: 'Port mappings',
+        description: state.ports.length > 0 ? state.ports.join(', ') : 'Not set'
       },
       {
         key: 'volumes',
-        label: '文件系统映射',
+        label: 'Filesystem mappings',
         description: state.volumes.length > 0
-          ? state.volumes.map(volume => `${volume.source} → ${volume.target}${volume.readOnly ? ' (只读)' : ''}`).join(', ')
-          : '未设置'
+          ? state.volumes.map(volume => `${volume.source} → ${volume.target}${volume.readOnly ? ' (read-only)' : ''}`).join(', ')
+          : 'Not set'
       },
       {
         key: 'additional',
-        label: '其他参数',
-        description: state.additionalArgs.length > 0 ? state.additionalArgs.join(' ') : '未设置'
+        label: 'Additional arguments',
+        description: state.additionalArgs.length > 0 ? state.additionalArgs.join(' ') : 'Not set'
       },
       {
         key: 'back',
-        label: '← 返回基础配置',
-        description: '调整镜像或资源设置',
+        label: '← Back to basic settings',
+        description: 'Adjust image or resource settings',
         alwaysShow: true
       },
       {
         key: 'done',
-        label: '完成并创建容器',
-        description: '使用当前配置运行容器',
+        label: 'Create container',
+        description: 'Run container with current configuration',
         alwaysShow: true
       }
     ];
@@ -225,15 +225,15 @@ export class ContainerCreateWizard {
       }
       case 'name': {
         const value = await vscode.window.showInputBox({
-          prompt: '输入容器名称',
-          placeHolder: '例如: web-service',
+          prompt: 'Enter a container name',
+          placeHolder: 'Example: web-service',
           value: state.name ?? '',
           validateInput: input => {
             if (!input?.trim()) {
-              return '容器名称不能为空';
+              return 'Container name cannot be empty';
             }
             if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(input.trim())) {
-              return '容器名称仅支持字母、数字、._-，且不能以符号开头';
+              return 'Container name may include letters, numbers, . _ -, and must start with an alphanumeric character';
             }
             return undefined;
           },
@@ -247,13 +247,13 @@ export class ContainerCreateWizard {
       case 'arch': {
         const arch = await vscode.window.showQuickPick(
           [
-            { label: 'arm64', description: '默认架构', value: 'arm64' },
-            { label: 'amd64', description: 'x86 架构', value: 'amd64' },
-            { label: 'x86_64', description: 'Intel 兼容', value: 'x86_64' },
-            { label: '自定义…', value: 'custom' }
+            { label: 'arm64', description: 'Default architecture', value: 'arm64' },
+            { label: 'amd64', description: 'x86 architecture', value: 'amd64' },
+            { label: 'x86_64', description: 'Intel compatible', value: 'x86_64' },
+            { label: 'Custom…', value: 'custom' }
           ],
           {
-            placeHolder: '选择 CPU 架构',
+            placeHolder: 'Select a CPU architecture',
             ignoreFocusOut: true
           }
         );
@@ -262,11 +262,11 @@ export class ContainerCreateWizard {
         }
         if (arch.value === 'custom') {
           const custom = await vscode.window.showInputBox({
-            prompt: '输入架构标识',
-            placeHolder: '例如: riscv64',
+            prompt: 'Enter an architecture identifier',
+            placeHolder: 'Example: riscv64',
             value: state.arch,
             ignoreFocusOut: true,
-            validateInput: input => (!input?.trim() ? '架构不能为空' : undefined)
+            validateInput: input => (!input?.trim() ? 'Architecture cannot be empty' : undefined)
           });
           if (custom?.trim()) {
             state.arch = custom.trim();
@@ -283,10 +283,10 @@ export class ContainerCreateWizard {
             { label: '2', value: 2 },
             { label: '3', value: 3 },
             { label: '4', value: 4 },
-            { label: '自定义…', value: -1 }
+            { label: 'Custom…', value: -1 }
           ],
           {
-            placeHolder: '选择 CPU 核数',
+            placeHolder: 'Select CPU cores',
             ignoreFocusOut: true
           }
         );
@@ -295,11 +295,11 @@ export class ContainerCreateWizard {
         }
         if (cpuSelection.value === -1) {
           const customCpu = await vscode.window.showInputBox({
-            prompt: '输入 CPU 核数',
+            prompt: 'Enter CPU core count',
             validateInput: input => {
               const value = Number.parseInt(input, 10);
               if (Number.isNaN(value) || value <= 0) {
-                return '请输入大于 0 的整数';
+                return 'Enter an integer greater than 0';
               }
               return undefined;
             },
@@ -316,16 +316,16 @@ export class ContainerCreateWizard {
       }
       case 'memory': {
         const memory = await vscode.window.showInputBox({
-          prompt: '输入内存限制',
-          placeHolder: '1024M, 2G, 512K 等',
+          prompt: 'Enter a memory limit',
+          placeHolder: '1024M, 2G, 512K, etc.',
           value: state.memory,
           ignoreFocusOut: true,
           validateInput: input => {
             if (!input?.trim()) {
-              return '内存限制不能为空';
+              return 'Memory limit cannot be empty';
             }
             const normalized = input.trim();
-            return /^[0-9]+(?:\.[0-9]+)?[KMGTP]?$/i.test(normalized) ? undefined : '请输入有效的内存值 (例如 1024M)';
+            return /^[0-9]+(?:\.[0-9]+)?[KMGTP]?$/i.test(normalized) ? undefined : 'Enter a valid memory value (e.g., 1024M)';
           }
         });
         if (memory?.trim()) {
@@ -342,8 +342,8 @@ export class ContainerCreateWizard {
     switch (field) {
       case 'ports': {
         const value = await vscode.window.showInputBox({
-          prompt: '配置端口映射',
-          placeHolder: '格式: hostPort:containerPort[/protocol]，多个以逗号分隔',
+          prompt: 'Configure port mappings',
+          placeHolder: 'Format: hostPort:containerPort[/protocol], comma-separated for multiple entries',
           value: state.ports.join(', '),
           ignoreFocusOut: true,
           validateInput: input => {
@@ -353,7 +353,7 @@ export class ContainerCreateWizard {
             const entries = input.split(',').map(entry => entry.trim()).filter(entry => entry.length > 0);
             for (const entry of entries) {
               if (!/^[0-9]+(?::[0-9]+)?(?:\/(tcp|udp))?$/i.test(entry) && !/^[^:]+:[0-9]+:[0-9]+(?:\/(tcp|udp))?$/i.test(entry)) {
-                return `无效端口映射: ${entry}`;
+                return `Invalid port mapping: ${entry}`;
               }
             }
             return undefined;
@@ -375,8 +375,8 @@ export class ContainerCreateWizard {
       }
       case 'additional': {
         const value = await vscode.window.showInputBox({
-          prompt: '输入其他命令行参数',
-          placeHolder: '--env KEY=VALUE --rm 等，可用空格分隔',
+          prompt: 'Enter additional CLI arguments',
+          placeHolder: '--env KEY=VALUE --rm, etc. separated by spaces',
           value: state.additionalArgs.join(' '),
           ignoreFocusOut: true
         });
@@ -395,8 +395,8 @@ export class ContainerCreateWizard {
     const items: ImagePickItem[] = this.images.map(image => {
       const reference = [image.repository, image.tag].filter(Boolean).join(':') || image.id;
       const detailParts = [
-        image.size ? `大小 ${image.size}` : undefined,
-        image.createdAt ? `创建于 ${image.createdAt}` : undefined
+        image.size ? `Size ${image.size}` : undefined,
+        image.createdAt ? `Created ${image.createdAt}` : undefined
       ].filter(Boolean);
       return {
         variant: 'image',
@@ -410,13 +410,13 @@ export class ContainerCreateWizard {
 
     items.unshift({
       variant: 'custom',
-      label: '自定义镜像…',
-      description: '手动输入镜像名称',
+      label: 'Custom image…',
+      description: 'Enter image name manually',
       alwaysShow: true
     });
 
     const selection = await vscode.window.showQuickPick(items, {
-      placeHolder: '选择已有镜像或输入自定义镜像',
+      placeHolder: 'Pick an existing image or enter a custom image',
       ignoreFocusOut: true
     });
 
@@ -426,11 +426,11 @@ export class ContainerCreateWizard {
 
     if (selection.variant === 'custom') {
       const custom = await vscode.window.showInputBox({
-        prompt: '输入镜像名称',
-        placeHolder: '例如: ghcr.io/org/app:latest',
+        prompt: 'Enter an image name',
+        placeHolder: 'Example: ghcr.io/org/app:latest',
         value: current ?? '',
         ignoreFocusOut: true,
-        validateInput: input => (!input?.trim() ? '镜像名称不能为空' : undefined)
+        validateInput: input => (!input?.trim() ? 'Image name cannot be empty' : undefined)
       });
       return custom?.trim() ? custom.trim() : undefined;
     }
@@ -444,19 +444,19 @@ export class ContainerCreateWizard {
       const items: VolumePickItem[] = [
         {
           variant: 'add',
-          label: '添加映射…',
-          description: '选择本地文件夹并指定容器路径'
+          label: 'Add mapping…',
+          description: 'Pick a local folder and specify the container path'
         },
         ...state.volumes.map((volume, index) => ({
           variant: 'remove' as const,
           index,
           label: `${volume.source} → ${volume.target}`,
-          description: volume.readOnly ? '只读映射，点击删除' : '点击删除'
+          description: volume.readOnly ? 'Read-only mapping, click to remove' : 'Click to remove'
         }))
       ];
 
       const selection = await vscode.window.showQuickPick(items, {
-        placeHolder: '管理文件系统映射',
+        placeHolder: 'Manage filesystem mappings',
         ignoreFocusOut: true
       });
 
@@ -471,21 +471,21 @@ export class ContainerCreateWizard {
           continue;
         }
         const target = await vscode.window.showInputBox({
-          prompt: '容器内目标路径',
+          prompt: 'Container path',
           placeHolder: '/app/data',
           ignoreFocusOut: true,
-          validateInput: input => (!input?.trim() ? '目标路径不能为空' : undefined)
+          validateInput: input => (!input?.trim() ? 'Target path cannot be empty' : undefined)
         });
         if (!target?.trim()) {
           continue;
         }
         const readOnlyChoice = await vscode.window.showQuickPick(
           [
-            { label: '读写', value: false },
-            { label: '只读', value: true }
+            { label: 'Read/write', value: false },
+            { label: 'Read-only', value: true }
           ],
           {
-            placeHolder: '选择权限',
+            placeHolder: 'Select access mode',
             ignoreFocusOut: true
           }
         );
@@ -502,11 +502,11 @@ export class ContainerCreateWizard {
         const removed = state.volumes[selection.index];
         const confirm = await vscode.window.showQuickPick(
           [
-            { label: '删除映射', description: `${removed.source} → ${removed.target}`, value: true },
-            { label: '保留', value: false }
+            { label: 'Remove mapping', description: `${removed.source} → ${removed.target}`, value: true },
+            { label: 'Keep', value: false }
           ],
           {
-            placeHolder: '确认删除该映射？',
+            placeHolder: 'Remove this mapping?',
             ignoreFocusOut: true
           }
         );
@@ -522,7 +522,7 @@ export class ContainerCreateWizard {
       canSelectFiles: false,
       canSelectFolders: true,
       canSelectMany: false,
-      openLabel: '选择文件夹',
+      openLabel: 'Select folder',
       defaultUri: this.workspaceFolders?.[0]?.uri
     });
     if (!uri || uri.length === 0) {

@@ -1,5 +1,17 @@
 # Development Log
 
+## 2025-10-31 — Removed persistent cache after UX regression
+
+### Summary
+- Removed the VS Code global-state cache for system, container, and image data to prevent stale listings when the system service is offline.
+- Updated TreeViews to display detection placeholders and guidance to start the service rather than showing cached data.
+- Adjusted container creation flows to fetch the latest images via the CLI instead of relying on cached snapshots.
+- Tagged the v0.3.1 release and refreshed documentation to note the cache removal.
+
+### Outstanding Follow-ups
+- Monitor load/performance after dropping the cache and confirm repeated refreshes remain responsive.
+- Gather user feedback on the new offline messaging and tune copy/icons if needed.
+
 ## 2025-10-30 — Container creation wizard and UI simplification
 
 ### Summary
@@ -50,7 +62,7 @@
 - Wired System view status events to include GitHub release metadata and persist the latest version for offline display.
 
 ### Outstanding Follow-ups
-- Evaluate storing additional metadata in the cache (e.g., timestamps) for richer offline messaging.
+- Former follow-up to store additional cache metadata is obsolete after the cache removal change above.
 - Add removal/pull operations and expand hover actions as subsequent milestones unlock CLI support.
 
 ## 2025-10-28 — Iteration on M0/M1 (alpha build)

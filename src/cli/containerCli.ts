@@ -339,44 +339,12 @@ export class ContainerCli {
   }
 
   private mockContainers(): ContainerSummary[] {
-    const user = os.userInfo().username;
-    return [
-      {
-        id: 'mock-web',
-        name: 'web-server',
-        image: 'ghcr.io/example/web:latest',
-        status: 'running',
-        ports: '80/tcp -> 8080',
-        createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'mock-db',
-        name: `db-${user}`,
-        image: 'docker.io/library/postgres:15',
-        status: 'stopped',
-        ports: '5432/tcp',
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-      }
-    ];
+    //const user = os.userInfo().username;
+    return [];
   }
 
   private mockImages(): ImageSummary[] {
-    return [
-      {
-        id: 'img-alpine',
-        repository: 'alpine',
-        tag: 'latest',
-        size: '5 MB',
-        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'img-ubuntu',
-        repository: 'ubuntu',
-        tag: '22.04',
-        size: '75 MB',
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      }
-    ];
+    return [];
   }
 
   private safeJsonParse<T>(value: string): T | undefined {

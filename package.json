@@ -2,14 +2,47 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.2.7",
-  "publisher": "apple-container",
+  "version": "0.3.1",
+  "publisher": "Awei-Sumaho",
+  "author": {
+    "email": "awei@sumaho.live",
+    "name": "Awei",
+    "url": "https://github.com/sumaho-live"
+  },
+  "icon": "media/marketplace-icon.png",
   "engines": {
     "vscode": ">=1.95.0"
   },
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "apple",
+    "container",
+    "macos",
+    "native",
+    "cli"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sumaho-live/AppleContainerManager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sumaho-live/AppleContainerManager/issues"
+  },
+  "homepage": "https://github.com/sumaho-live/AppleContainerManager#readme",
+  "galleryBanner": {
+    "color": "#1f2a3d",
+    "theme": "dark"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "Apple container CLI operations are disabled when a workspace is not trusted."
+    },
+    "virtualWorkspaces": false
+  },
   "main": "./dist/extension.js",
   "activationEvents": [
     "onStartupFinished",
@@ -79,7 +112,8 @@
         },
         {
           "id": "appleContainerContainers",
-          "name": "Containers"
+          "name": "Containers",
+          "icon": "media/container.svg"
         }
       ]
     },

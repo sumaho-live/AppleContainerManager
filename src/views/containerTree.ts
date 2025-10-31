@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 
 import { ContainerCli, ContainerSummary } from '../cli/containerCli';
-import { CacheStore } from '../core/cache';
 import { events, SystemStatusPayload } from '../core/events';
 import { log, logError } from '../core/logger';
 
@@ -77,39 +76,33 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
   private readonly emitter = new vscode.EventEmitter<ContainerTreeItem | undefined | null | void>();
   private items: ContainerSummary[] = [];
   private serviceRunning = false;
+  private statusKnown = false;
   private readonly statusListener: (payload: SystemStatusPayload) => void;
 
   constructor(
-    private readonly cli: ContainerCli,
-    private readonly cache: CacheStore
+    private readonly cli: ContainerCli
   ) {
     this.statusListener = payload => {
+      this.statusKnown = true;
       this.serviceRunning = payload.running;
       if (!payload.running) {
-        log('System reported stopped; loading containers from cache');
-        this.items = this.withStoppedStatus(this.cache.getContainers());
+        log('System reported stopped; clearing container list to avoid stale data');
+        this.items = [];
+        events.emit('data:containers', []);
         this.emitter.fire();
         return;
       }
       this.emitter.fire();
     };
     events.on('system:status', this.statusListener);
-    this.items = this.withStoppedStatus(this.cache.getContainers());
-    if (this.items.length > 0) {
-      log(`Container cache primed with ${this.items.length} entries`);
-    }
   }
 
   readonly onDidChangeTreeData: vscode.Event<ContainerTreeItem | undefined | null | void> = this.emitter.event;
 
   async refresh(): Promise<void> {
     if (!this.serviceRunning) {
-      this.items = this.withStoppedStatus(this.cache.getContainers());
-      if (this.items.length > 0) {
-        log(`Containers loaded from cache (${this.items.length})`);
-      } else {
-        log('No cached containers available while system stopped');
-      }
+      log('Skipping container refresh because system service is not running');
+      this.items = [];
       this.emitter.fire();
       return;
     }
@@ -118,7 +111,6 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
       const containers = await this.cli.listContainers();
       this.items = containers;
       events.emit('data:containers', containers);
-      await this.cache.setContainers(containers);
       log(`Containers refreshed (${containers.length})`);
       if (containers.length > 0) {
         const preview = containers.map(container => `${container.name} [${container.status}]`).join(', ');
@@ -127,12 +119,7 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
       this.emitter.fire();
     } catch (error) {
       logError('Unable to refresh containers', error);
-      const cached = this.cache.getContainers();
-      if (cached.length > 0) {
-        log('Falling back to cached containers after refresh failure');
-        this.items = this.serviceRunning ? cached : this.withStoppedStatus(cached);
-        this.emitter.fire();
-      }
+      this.emitter.fire();
     }
   }
 
@@ -141,6 +128,24 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
   }
 
   async getChildren(): Promise<ContainerTreeItem[]> {
+    if (!this.statusKnown) {
+      return [
+        new ContainerTreeItem(
+          { id: 'empty-containers', name: 'Detecting containers…', image: 'n/a', status: 'Pending' },
+          false
+        )
+      ];
+    }
+
+    if (!this.serviceRunning) {
+      return [
+        new ContainerTreeItem(
+          { id: 'empty-containers', name: 'Start the Apple container system to view containers', image: 'n/a', status: 'Unavailable' },
+          false
+        )
+      ];
+    }
+
     if (this.items.length === 0) {
       return [
         new ContainerTreeItem(
@@ -156,12 +161,5 @@ export class ContainersTreeProvider implements vscode.TreeDataProvider<Container
   dispose(): void {
     events.off('system:status', this.statusListener);
     this.emitter.dispose();
-  }
-
-  private withStoppedStatus(containers: ContainerSummary[]): ContainerSummary[] {
-    return containers.map(container => ({
-      ...container,
-      status: container.id === 'empty-containers' ? container.status : 'Stopped'
-    }));
   }
 }

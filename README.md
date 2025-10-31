@@ -10,7 +10,7 @@ A VS Code extension for macOS that provides visual management for Apple’s nati
 - Containers view now supports inline start / stop / remove controls with rich hover summaries (image, CPU / memory, ports)
 - Dedicated System view with start / stop controls and update awareness
 - One-click “+” toolbar button launches a two-step container creation wizard (image & resources, then ports / volumes / extra args)
-- Offline cache of system version, images, and containers for quick read-only access when the service is stopped
+- Real-time views that clear stale data and prompt to start the system service when it is offline
 - Detects container CLI version, checks GitHub for the latest release, and surfaces inline upgrade actions
 - Optional workspace-level auto-start of the system service
 - Lightweight, native, no external dependencies
@@ -70,5 +70,8 @@ Add settings in your user or workspace settings:
 ## Contributing
 Issues and pull requests are welcome. The goal is to make managing macOS native containers as convenient as working with Docker Desktop, directly within VS Code.
 
+## Release Notes
+See `CHANGELOG.md` for a versioned history of notable changes.
+
 ## License
-TBD
+MIT License © 2025 Apple Container. See `LICENSE` for details.

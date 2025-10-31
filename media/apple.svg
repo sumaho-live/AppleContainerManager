@@ -1,5 +1,33 @@
-<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
-  <path d="M17.74 12.04c-.02-2.06 1.67-3.05 1.75-3.1-0.96-1.39-2.45-1.58-2.98-1.6-1.27-.13-2.48.75-3.12.75-.64 0-1.64-.74-2.7-.71-1.39.02-2.68.81-3.39 2.06-1.45 2.52-.37 6.24 1.04 8.28.69.99 1.52 2.1 2.6 2.06 1.04-.04 1.43-.67 2.69-.67 1.27 0 1.61.67 2.71.65 1.12-.02 1.83-1 2.52-2 0.79-1.15 1.12-2.26 1.14-2.32-.03-.02-2.18-.83-2.21-3.41z" fill="#1E1E1E"/>
-  <path d="M14.82 5.49c.58-.71.97-1.69.86-2.68-.83.03-1.83.55-2.41 1.26-.54.63-1 1.63-.88 2.59.93.07 1.86-.48 2.43-1.17z" fill="#1E1E1E"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="100 150 820 820">
+  <!-- 左上方的钻石 -->
+  <path d="M 337 188 L 512 363 L 337 538 L 162 363 Z" 
+        fill="none" 
+        stroke="black" 
+        stroke-width="36" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+  
+  <!-- 右上方的钻石 -->
+  <path d="M 687 188 L 862 363 L 687 538 L 512 363 Z" 
+        fill="none" 
+        stroke="black" 
+        stroke-width="36" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+  
+  <!-- 左下方的钻石 -->
+  <path d="M 337 538 L 512 713 L 337 888 L 162 713 Z" 
+        fill="none" 
+        stroke="black" 
+        stroke-width="36" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+  
+  <!-- 右下方的钻石 -->
+  <path d="M 687 538 L 862 713 L 687 888 L 512 713 Z" 
+        fill="none" 
+        stroke="black" 
+        stroke-width="36" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
 </svg>
-
