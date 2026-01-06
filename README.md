@@ -14,6 +14,7 @@ A VS Code extension for macOS that provides visual management for Apple’s nati
 - Real-time views that clear stale data and prompt to start the system service when it is offline
 - Detects container CLI version, checks GitHub for the latest release, and surfaces inline upgrade actions
 - Optional workspace-level auto-start of the system service
+- Devcontainer workflows: apply `devcontainer.json`, rebuild containers, run post lifecycle commands, and surface Remote-SSH connection guidance
 - Lightweight, native, no external dependencies
 
 ## System Requirements
@@ -29,6 +30,22 @@ A VS Code extension for macOS that provides visual management for Apple’s nati
 1. Open VS Code. The “Apple Containers” view appears in the Activity Bar.
 2. If the system service is not running, start it from the System view.
 3. Use context menus or the Command Palette to manage containers and images, or create a container from the Containers view toolbar.
+
+## Working with Dev Containers
+The extension can recreate a development environment from a workspace `.appcontainer/devcontainer.json` (or `.appcontainer.json`) using the Apple `container` CLI.
+
+1. Ensure your devcontainer image exposes SSH (e.g., via the official Dev Container `sshd` feature or a custom Dockerfile).
+2. Optional: run **Apple Container: Build Devcontainer Image** to execute the `build` section (Dockerfile) and tag the resulting image. The build uses `.appcontainer/devcontainer.json` definitions (`dockerfile`, `context`, `args`, `target`, etc.).
+3. Run **Apple Container: Apply Devcontainer Configuration**. The extension will:
+   - Parse `devcontainer.json`, resolve variable placeholders, and ensure the workspace folder is mounted.
+   - Stop and remove any existing container with the same name.
+   - Recreate the container with ports, volumes, environment variables, and `runArgs` mapped to the Apple container CLI.
+   - Execute `postCreateCommand` and `postStartCommand` inside the container via `container exec`.
+4. Use **Show Devcontainer Connection Instructions** to copy Remote-SSH connection details after apply or rebuild.
+5. Re-run **Rebuild Devcontainer** whenever you update `devcontainer.json`.
+6. Use **Run Devcontainer Lifecycle Commands** to manually re-trigger the post-create/start scripts.
+
+> ℹ️ The workspace folder is always mounted read/write. Additional `mounts` entries are supported with `${localWorkspaceFolder}` and `${containerWorkspaceFolder}` substitutions. Devcontainer `features`, `docker-compose`, and image builds are not yet supported.
 
 ## Configuration
 Add settings in your user or workspace settings:
@@ -61,6 +78,11 @@ Add settings in your user or workspace settings:
 - `appleContainer.refresh`: Refresh all views (System, Images, Containers)
 - `appleContainer.system.upgrade`: Open the latest GitHub release for the container CLI
 - `appleContainer.update.check`: Check for a new CLI version
+- `appleContainer.devcontainer.build`: Build the image defined in `.appcontainer/devcontainer.json`
+- `appleContainer.devcontainer.apply`: Apply the workspace `devcontainer.json` and recreate the container
+- `appleContainer.devcontainer.rebuild`: Force a rebuild of the devcontainer-managed container
+- `appleContainer.devcontainer.runPostCommands`: Re-run `postCreateCommand` and `postStartCommand` inside the container
+- `appleContainer.devcontainer.open`: Show Remote-SSH connection instructions inferred from `forwardPorts`
 
 ## Roadmap (High Level)
 - M0: CLI interface validation and system control — in progress

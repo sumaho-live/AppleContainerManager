@@ -39,6 +39,39 @@ export interface ExecOptions {
   cwd?: string;
 }
 
+export interface ContainerExecOptions {
+  user?: string;
+  uid?: number;
+  gid?: number;
+  workdir?: string;
+  env?: Record<string, string | undefined>;
+  envFiles?: string[];
+  tty?: boolean;
+  interactive?: boolean;
+  timeout?: number;
+}
+
+export interface ContainerExecStreamOptions extends Omit<ContainerExecOptions, 'timeout'> {}
+
+export interface ContainerBuildOptions {
+  context?: string;
+  dockerfile?: string;
+  tags?: string[];
+  buildArgs?: Record<string, string>;
+  labels?: Record<string, string>;
+  target?: string;
+  noCache?: boolean;
+  platform?: string;
+  arch?: string;
+  os?: string;
+  cpus?: number;
+  memory?: string;
+  quiet?: boolean;
+  progress?: 'auto' | 'plain' | 'tty';
+  additionalOptions?: string[];
+  cwd?: string;
+}
+
 export interface VolumeMapping {
   source: string;
   target: string;
@@ -65,7 +98,7 @@ export class ContainerCli {
 
     try {
       const { stdout, stderr } = await execFileAsync(this.binary, args, {
-        timeout: options.timeout ?? 15000,
+        timeout: options.timeout ?? 300000,
         cwd: options.cwd,
         env: process.env
       });
@@ -286,6 +319,91 @@ export class ContainerCli {
     await this.execWithFallback(variants);
   }
 
+  async execInContainer(containerId: string, command: string[], options: ContainerExecOptions = {}): Promise<{ stdout: string; stderr: string }> {
+    const args = this.buildExecArgs(containerId, command, options);
+    return this.exec(args, { timeout: options.timeout });
+  }
+
+  spawnInContainer(containerId: string, command: string[], options: ContainerExecStreamOptions = {}): ChildProcessWithoutNullStreams {
+    const args = this.buildExecArgs(containerId, command, options);
+    logCommand(this.binary, args);
+    const child = spawn(this.binary, args, {
+      env: process.env
+    });
+
+    child.on('error', error => {
+      logError(`Failed to exec command in container ${containerId}`, error);
+    });
+
+    return child;
+  }
+
+  private buildExecArgs(containerId: string, command: string[], options: ContainerExecStreamOptions = {}): string[] {
+    if (!containerId?.trim()) {
+      throw new AppleContainerError('Container ID is required for exec', ErrorCode.CommandFailed);
+    }
+
+    if (!Array.isArray(command) || command.length === 0) {
+      throw new AppleContainerError('At least one command argument is required for exec', ErrorCode.CommandFailed);
+    }
+
+    const normalizedCommand = command.filter(part => typeof part === 'string' && part.trim().length > 0);
+    if (normalizedCommand.length === 0) {
+      throw new AppleContainerError('Command arguments contained only empty values', ErrorCode.CommandFailed);
+    }
+
+    const args: string[] = ['exec'];
+
+    if (options.env) {
+      for (const [key, value] of Object.entries(options.env)) {
+        if (!key || typeof key !== 'string') {
+          continue;
+        }
+        const trimmedKey = key.trim();
+        if (!trimmedKey) {
+          continue;
+        }
+        const normalizedValue = value ?? '';
+        args.push('--env', `${trimmedKey}=${normalizedValue}`);
+      }
+    }
+
+    for (const envFile of options.envFiles ?? []) {
+      const trimmed = envFile?.trim();
+      if (trimmed) {
+        args.push('--env-file', trimmed);
+      }
+    }
+
+    if (typeof options.gid === 'number' && Number.isFinite(options.gid)) {
+      args.push('--gid', `${options.gid}`);
+    }
+
+    if (options.interactive) {
+      args.push('--interactive');
+    }
+
+    if (options.tty) {
+      args.push('--tty');
+    }
+
+    if (typeof options.uid === 'number' && Number.isFinite(options.uid)) {
+      args.push('--uid', `${options.uid}`);
+    }
+
+    if (options.user?.trim()) {
+      args.push('--user', options.user.trim());
+    }
+
+    if (options.workdir?.trim()) {
+      args.push('--workdir', options.workdir.trim());
+    }
+
+    args.push(containerId.trim());
+    args.push(...normalizedCommand);
+    return args;
+  }
+
   async createContainer(options: ContainerCreateOptions): Promise<void> {
     const image = options.image?.trim();
     if (!image) {
@@ -349,6 +467,124 @@ export class ContainerCli {
     args.push(image);
 
     await this.exec(args);
+  }
+
+  async buildImage(options: ContainerBuildOptions = {}): Promise<void> {
+    const args: string[] = ['build'];
+
+    if (options.dockerfile?.trim()) {
+      args.push('--file', options.dockerfile.trim());
+    }
+
+    for (const tag of options.tags ?? []) {
+      const trimmed = tag?.trim();
+      if (trimmed) {
+        args.push('--tag', trimmed);
+      }
+    }
+
+    for (const [key, value] of Object.entries(options.buildArgs ?? {})) {
+      if (!key?.trim()) {
+        continue;
+      }
+      const normalized = value ?? '';
+      args.push('--build-arg', `${key.trim()}=${normalized}`);
+    }
+
+    for (const [key, value] of Object.entries(options.labels ?? {})) {
+      if (!key?.trim()) {
+        continue;
+      }
+      const normalized = value ?? '';
+      args.push('--label', `${key.trim()}=${normalized}`);
+    }
+
+    if (options.target?.trim()) {
+      args.push('--target', options.target.trim());
+    }
+
+    if (options.noCache) {
+      args.push('--no-cache');
+    }
+
+    if (options.platform?.trim()) {
+      args.push('--platform', options.platform.trim());
+    }
+
+    if (options.arch?.trim()) {
+      args.push('--arch', options.arch.trim());
+    }
+
+    if (options.os?.trim()) {
+      args.push('--os', options.os.trim());
+    }
+
+    if (typeof options.cpus === 'number' && Number.isFinite(options.cpus)) {
+      args.push('--cpus', options.cpus.toString());
+    }
+
+    if (options.memory?.trim()) {
+      args.push('--memory', options.memory.trim());
+    }
+
+    if (options.quiet) {
+      args.push('--quiet');
+    }
+
+    if (options.progress?.trim()) {
+      args.push('--progress', options.progress.trim());
+    }
+
+    for (const extra of options.additionalOptions ?? []) {
+      const trimmed = extra?.trim();
+      if (trimmed) {
+        args.push(trimmed);
+      }
+    }
+
+    const context = options.context?.trim() && options.context.trim().length > 0 ? options.context.trim() : '.';
+    args.push(context);
+
+    logCommand(this.binary, args);
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(this.binary, args, {
+        cwd: options.cwd,
+        env: process.env
+      });
+
+      child.stdout.on('data', chunk => {
+        const lines = chunk
+          .toString()
+          .split(/\r?\n/)
+          .filter((line: string) => line.length > 0);
+        for (const line of lines) {
+          log(line);
+        }
+      });
+
+      child.stderr.on('data', chunk => {
+        const lines = chunk
+          .toString()
+          .split(/\r?\n/)
+          .filter((line: string) => line.length > 0);
+        for (const line of lines) {
+          log(line);
+        }
+      });
+
+      child.on('error', error => {
+        reject(toAppleContainerError(error));
+      });
+
+      child.on('close', code => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new AppleContainerError(`Image build failed with exit code ${code}`, ErrorCode.CommandFailed));
+        }
+      });
+    });
   }
 
   async ensureAvailable(): Promise<void> {

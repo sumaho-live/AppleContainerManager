@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.4.1] - 2025-11-01
+### Added
+- Devcontainer tooling: apply/rebuild commands that read `devcontainer.json`, recreate containers, and run `postCreate`/`postStart` lifecycle hooks through the Apple CLI.
+- `container exec` integration for running ad-hoc commands inside active containers, used by the devcontainer lifecycle manager.
+- Image build support that invokes `container build` based on `.appcontainer/devcontainer.json` definitions (Dockerfile, context, args, target, tags).
+- New container context actions for running commands or opening an interactive shell.
+
+### Changed
+- Documentation now covers the devcontainer workflow and Remote-SSH connection guidance.
+- Devcontainer configuration discovery path changed to `.appcontainer/devcontainer.json` (or `.appcontainer.json`) to avoid conflicts with the official Dev Containers extension.
+- Increased the default CLI execution timeout to accommodate long-running `container run` operations and avoid premature failures.
+
+### Fixed
+- Restored tree view toolbar actions for system, containers, and images after consolidating menu contributions.
+
 ## [0.4.0] - 2025-10-31
 ### Added
 - Container log streaming with start/stop controls directly from the Containers view backed by a new `ContainerLogManager`.

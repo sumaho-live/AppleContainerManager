@@ -3,15 +3,16 @@ import * as vscode from 'vscode';
 import { ContainerCli, ImageSummary } from './cli/containerCli';
 import { AppleContainerError, ErrorCode } from './core/errors';
 import { events } from './core/events';
-import { log, logError } from './core/logger';
+import { log, logError, logWarn } from './core/logger';
 import { handleWorkspaceAutoStart } from './core/workspaceAutoStart';
 import { ImageTreeItem, ImagesTreeProvider } from './views/imageTree';
 import { ContainerTreeItem, ContainersTreeProvider } from './views/containerTree';
 import { ContainerCreateWizard } from './views/containerCreateWizard';
 import { SystemTreeProvider, SystemTreeItem } from './views/systemTree';
 import { fetchLatestRelease } from './updater/githubClient';
-import { ContainerLogManager } from './core/containerLogs';
 import { logFormatter } from './core/logFormatter';
+import { ContainerLogManager } from './core/containerLogs';
+import { DevcontainerManager } from './devcontainer/devcontainerManager';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   log('Activating Apple Container Manager extension');
@@ -21,6 +22,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const logManager = new ContainerLogManager(cli);
   const containersProvider = new ContainersTreeProvider(cli, logManager);
   const imagesProvider = new ImagesTreeProvider(cli);
+  const devcontainerManager = new DevcontainerManager(cli);
 
   context.subscriptions.push(
     systemProvider,
@@ -28,6 +30,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     imagesProvider,
     logManager,
     logFormatter,
+    devcontainerManager,
     vscode.window.registerTreeDataProvider('appleContainerSystem', systemProvider),
     vscode.window.registerTreeDataProvider('appleContainerContainers', containersProvider),
     vscode.window.registerTreeDataProvider('appleContainerImages', imagesProvider)
@@ -39,7 +42,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await refreshSystemStatus(cli, containersProvider, imagesProvider, { refreshResources: true, requestedRunning: true });
   }
 
-  registerCommands(context, cli, systemProvider, containersProvider, imagesProvider, logManager);
+  registerCommands(context, cli, systemProvider, containersProvider, imagesProvider, logManager, devcontainerManager);
   registerErrorHandler(context);
 }
 
@@ -71,7 +74,8 @@ function registerCommands(
   systemProvider: SystemTreeProvider,
   containersProvider: ContainersTreeProvider,
   imagesProvider: ImagesTreeProvider,
-  logManager: ContainerLogManager
+  logManager: ContainerLogManager,
+  devcontainerManager: DevcontainerManager
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('appleContainer.system.start', async () => {
@@ -124,6 +128,49 @@ function registerCommands(
         await cli.stopContainer(item.container.id);
         await containersProvider.refresh();
         void vscode.window.showInformationMessage(`Container ${identifier} stopped.`);
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.container.exec', async (item?: ContainerTreeItem) => {
+      if (!item?.container || item.container.id === 'empty-containers') {
+        return;
+      }
+      const identifier = item.container.name ?? item.container.id;
+      const input = await vscode.window.showInputBox({
+        title: `Run Command in ${identifier}`,
+        placeHolder: 'e.g. npm install',
+        prompt: 'Command will run via /bin/sh -c inside the container'
+      });
+      if (!input?.trim()) {
+        return;
+      }
+      await withCommandHandling(`Exec in ${identifier}`, async () => {
+        const { stdout, stderr } = await cli.execInContainer(item.container.id, ['/bin/sh', '-c', input], {
+          user: undefined,
+          workdir: undefined,
+          tty: false,
+          interactive: false
+        });
+        if (stdout?.trim()) {
+          log(stdout.trim());
+        }
+        if (stderr?.trim()) {
+          logWarn(stderr.trim());
+        }
+        void vscode.window.showInformationMessage(`Command finished in ${identifier}.`);
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.container.shell', async (item?: ContainerTreeItem) => {
+      if (!item?.container || item.container.id === 'empty-containers') {
+        return;
+      }
+      const identifier = item.container.name ?? item.container.id;
+      await withCommandHandling(`Opening shell in ${identifier}`, async () => {
+        const term = vscode.window.createTerminal({
+          name: `Shell: ${identifier}`,
+          shellPath: 'container',
+          shellArgs: ['exec', '--interactive', '--tty', item.container.id, '/bin/sh']
+        });
+        term.show(true);
       });
     }),
     vscode.commands.registerCommand('appleContainer.container.logs.start', async (item?: ContainerTreeItem) => {
@@ -259,6 +306,31 @@ function registerCommands(
               }
             });
         }
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.devcontainer.build', async () => {
+      await withCommandHandling('Building devcontainer image', async () => {
+        await devcontainerManager.buildDevcontainer();
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.devcontainer.apply', async () => {
+      await withCommandHandling('Applying devcontainer configuration', async () => {
+        await devcontainerManager.applyDevcontainer();
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.devcontainer.rebuild', async () => {
+      await withCommandHandling('Rebuilding devcontainer', async () => {
+        await devcontainerManager.rebuildDevcontainer();
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.devcontainer.runPostCommands', async () => {
+      await withCommandHandling('Running devcontainer lifecycle commands', async () => {
+        await devcontainerManager.runPostLifecycle();
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.devcontainer.open', async () => {
+      await withCommandHandling('Displaying devcontainer connection instructions', async () => {
+        await devcontainerManager.showOpenInstructions();
       });
     })
   );

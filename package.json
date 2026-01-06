@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "Awei-Sumaho",
   "author": {
     "email": "awei@sumaho.live",
@@ -64,6 +64,13 @@
     "onCommand:appleContainer.refresh",
     "onCommand:appleContainer.image.remove",
     "onCommand:appleContainer.update.check",
+    "onCommand:appleContainer.devcontainer.build",
+    "onCommand:appleContainer.devcontainer.apply",
+    "onCommand:appleContainer.devcontainer.rebuild",
+    "onCommand:appleContainer.devcontainer.runPostCommands",
+    "onCommand:appleContainer.devcontainer.open",
+    "workspaceContains:.appcontainer/devcontainer.json",
+    "workspaceContains:.appcontainer.json",
     "workspaceContains:.vscode/settings.json"
   ],
   "contributes": {
@@ -205,6 +212,16 @@
           "group": "inline@2"
         },
         {
+          "command": "appleContainer.container.exec",
+          "when": "view == appleContainerContainers && viewItem =~ /container-(running|stopped)(-deletable)?(-logging)?$/",
+          "group": "inline@4"
+        },
+        {
+          "command": "appleContainer.container.shell",
+          "when": "view == appleContainerContainers && viewItem =~ /container-running(-logging)?$/",
+          "group": "inline@5"
+        },
+        {
           "command": "appleContainer.container.remove",
           "when": "view == appleContainerContainers && viewItem =~ /container-stopped-deletable(-logging)?$/",
           "group": "inline@3"
@@ -285,6 +302,21 @@
           "command": "appleContainer.update.check",
           "when": "true",
           "group": "appleContainer@14"
+        },
+        {
+          "command": "appleContainer.container.exec",
+          "when": "true",
+          "group": "appleContainer@15"
+        },
+        {
+          "command": "appleContainer.container.shell",
+          "when": "true",
+          "group": "appleContainer@16"
+        },
+        {
+          "command": "appleContainer.devcontainer.build",
+          "when": "true",
+          "group": "appleContainer@17"
         }
       ]
     },
@@ -377,6 +409,48 @@
         "title": "Check for CLI Updates",
         "category": "Apple Container",
         "icon": "$(cloud)"
+      },
+      {
+        "command": "appleContainer.container.exec",
+        "title": "Run Command in Container…",
+        "category": "Apple Container",
+        "icon": "$(terminal-cmd)"
+      },
+      {
+        "command": "appleContainer.container.shell",
+        "title": "Open Shell in Container",
+        "category": "Apple Container",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "appleContainer.devcontainer.build",
+        "title": "Build Devcontainer Image",
+        "category": "Apple Container",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "appleContainer.devcontainer.apply",
+        "title": "Apply Devcontainer Configuration",
+        "category": "Apple Container",
+        "icon": "$(extensions-install)"
+      },
+      {
+        "command": "appleContainer.devcontainer.rebuild",
+        "title": "Rebuild Devcontainer",
+        "category": "Apple Container",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "appleContainer.devcontainer.runPostCommands",
+        "title": "Run Devcontainer Lifecycle Commands",
+        "category": "Apple Container",
+        "icon": "$(run)"
+      },
+      {
+        "command": "appleContainer.devcontainer.open",
+        "title": "Show Devcontainer Connection Instructions",
+        "category": "Apple Container",
+        "icon": "$(remote)"
       }
     ]
   },

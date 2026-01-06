@@ -1,5 +1,18 @@
 # Development Log
 
+## 2025-10-31 — Devcontainer workflow support
+
+### Summary
+- Added `container exec` helpers so lifecycle commands can run inside active containers with user/workdir/env options.
+- Introduced a DevcontainerManager that parses `.appcontainer/devcontainer.json`, resolves mounts/ports/env, and orchestrates stop/remove/recreate flows via the Apple CLI.
+- Added image build support via `container build`, honoring `dockerfile`, `context`, `args`, `target`, and tagging rules from the devcontainer configuration.
+- Registered new VS Code commands to apply/rebuild the devcontainer, re-run lifecycle scripts, and show Remote-SSH connection hints.
+- Documented the expected SSH-ready image requirements and updated README/CHANGELOG to walk through the workflow.
+
+### Outstanding Follow-ups
+- Track first-run state so `postCreateCommand` only executes once per container build.
+- Evaluate supporting devcontainer `features`, image cache controls, and docker-compose projects in future iterations.
+
 ## 2025-10-31 — v0.4 release preparation
 
 ### Summary
