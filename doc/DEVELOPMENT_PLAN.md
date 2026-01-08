@@ -8,11 +8,13 @@
 ---
 
 ## 1. Milestones
-- M0 (0.5 weeks): Validate CLI calls, parse version, system control
-- M1 (2 weeks): TreeView UI, Status Bar, auto-start logic
-- M2 (2 weeks): GitHub version check and update notification
-- M3 (2 weeks): Container operations and Marketplace readiness
-- M4 (1 week): Testing and documentation
+- M0 (Completed): Validate CLI calls, parse version, system control
+- M1 (Completed): TreeView UI, Status Bar, auto-start logic
+- M2 (Completed): GitHub version check and update notification
+- M3 (Completed): Container operations and Marketplace readiness
+- M4 (Completed): Creation Wizard and Log Streaming
+- M5 (Completed): Devcontainer workflow support
+- M6 (In Progress): Testing, optimization, and documentation for v0.5.0 release
 
 ## 2. Phase Details
 ### M0: Technical Validation and Foundation
@@ -40,7 +42,19 @@
 - Implement Image Pull, Remove, Run
 - Finalize toolbar actions and UX polish for operations
 
-### M4: Polish and Release
+### M4: Creation Wizard and Log Streaming
+- Implementation of `ContainerCreateWizard` for guided container setup
+- Support for selecting images, resources, ports, and volumes
+- Introduction of `ContainerLogManager` for streaming container logs
+- Enhanced log formatting and timestamp toggles
+
+### M5: Devcontainer Workflow Support
+- Logic to parse `.appcontainer/devcontainer.json`
+- Support for `build` (Dockerfile/context) and `image` based configs
+- Lifecycle hooks: `postCreateCommand`, `postStartCommand`
+- Commands to apply, rebuild, and open devcontainers (SSH hints)
+
+### M6: Polish and Release
 - Test coverage for core flows and error handling
 - Documentation updates (README, help, changelog)
 - Prepare and publish preview to Marketplace

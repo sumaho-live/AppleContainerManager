@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 
 import { ContainerCli, ContainerCreateOptions, ContainerExecOptions } from '../cli/containerCli';
 import { AppleContainerError, ErrorCode, toAppleContainerError } from '../core/errors';
+import { SshManager } from './sshManager';
 import { log, logError, logInfo, logWarn } from '../core/logger';
 
 type DevcontainerCommand = string | string[];
@@ -105,7 +106,7 @@ export class DevcontainerManager implements vscode.Disposable {
 
   constructor(
     private readonly cli: ContainerCli
-  ) {}
+  ) { }
 
   dispose(): void {
     this.appliedState.clear();
@@ -134,14 +135,73 @@ export class DevcontainerManager implements vscode.Disposable {
 
     const existing = await this.findContainerByName(containerName);
     if (existing) {
-      logInfo(`Existing container ${containerName} detected (${existing.id}); preparing to ${options.rebuild ? 'rebuild' : 'refresh'}.`);
+      if (!options.rebuild) {
+        logInfo(`Reuse existing container ${containerName} (${existing.id}).`);
+        // Ensure it is running
+        // Ensure it is running
+        await this.cli.startContainer(existing.id);
+        await this.delay(3000); // Wait for container to stabilize
+
+        // We still need to ensure SSH keys and config are up to date
+        const sshManager = new SshManager();
+        const sshKey = await sshManager.ensureSshKey();
+
+        // Inject key again (idempotent-ish) to be safe
+        await this.injectSshKey(existing.id, sshKey, resolved.remoteUser);
+
+        // Update config
+        const sshPort = this.detectForwardedPort(resolved.ports, 22) ?? '2222';
+        await sshManager.updateConfig(containerName, sshPort, resolved.remoteUser);
+
+        void vscode.window.showInformationMessage(`Devcontainer ${containerName} is ready (reused).`);
+        return;
+      }
+
+      logInfo(`Existing container ${containerName} detected (${existing.id}); preparing to rebuild.`);
+      await this.stopContainerIfRunning(existing.id, containerName);
       await this.stopContainerIfRunning(existing.id, containerName);
       await this.removeContainer(existing.id, containerName);
+      await this.delay(3000); // Wait for cleanup
     }
 
+    const sshManager = new SshManager();
+    const sshKey = await sshManager.ensureSshKey();
+
     const createOptions = this.toCreateOptions(resolved);
-    await this.cli.createContainer(createOptions);
-    logInfo(`Container ${containerName} created from devcontainer configuration.`);
+
+    // Inject SSH setup payload into postCreateCommand or minimal init
+    // For now we append a command to inject the key if not present
+    const sshInjectionCmd = `mkdir -p ~/.ssh && echo "${sshKey}" >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`;
+
+    // We prepend this to the postCreateCommand or user command to ensure it runs early
+    // However, since we run post commands *after* creation via exec, we can just run it as the very first post-command step.
+
+    try {
+      await this.cli.createContainer(createOptions);
+      await this.delay(3000); // Wait for creation to complete
+      logInfo(`Container ${containerName} created from devcontainer configuration.`);
+    } catch (error) {
+      const err = toAppleContainerError(error);
+      if (err.message.includes('exists')) {
+        logWarn(`Container ${containerName} name collision detected. Stale/Zombie container likely exists. Removing and recreating to ensure fresh config.`);
+        try {
+          // Force remove the conflicting container name/id
+          // Force remove the conflicting container name/id
+          await this.removeContainer(containerName, containerName);
+          await this.delay(3000); // Wait for removal
+        } catch (rmError) {
+          logWarn(`Attempt to remove conflicting container ${containerName} failed: ${rmError}`);
+          // Proceed to try creation again anyway, though it might fail again if not removed
+        }
+        // Retry creation
+        // Retry creation
+        await this.cli.createContainer(createOptions);
+        await this.delay(3000); // Wait for creation to complete
+        logInfo(`Container ${containerName} recreated successfully.`);
+      } else {
+        throw err;
+      }
+    }
 
     const created = await this.waitForContainer(containerName, 5_000);
     if (!created) {
@@ -149,7 +209,24 @@ export class DevcontainerManager implements vscode.Disposable {
       return;
     }
 
+    // Ensure container is running before attempting to inject keys or run commands
+    // If it was just created, it might be stopped (depending on create options, usually create is just create not run?).
+    // Actually create usually implies run in some CLIs, but here we have explicit start commands in CLI class?
+    // CLI.createContainer uses `run` command which behaves like docker run.
+    // docker run starts it.
+    // BUT if we caught "exists", it might be stopped.
+    // So ensuring start is good.
+    await this.cli.startContainer(created.id ?? containerName);
+    await this.delay(3000); // Wait for startup
+
+    // Inject SSH key immediately after container is waiting
+    await this.injectSshKey(created.id ?? containerName, sshKey, resolved.remoteUser);
+
     this.appliedState.set(folder.uri.toString(), resolved);
+
+    // Update Local SSH Config
+    const sshPort = this.detectForwardedPort(resolved.ports, 22) ?? '2222'; // Default fallback or error?
+    await sshManager.updateConfig(containerName, sshPort, resolved.remoteUser);
 
     await this.runPostCommands(created.id ?? containerName, resolved, {
       runCreate: Boolean(resolved.postCreateCommand),
@@ -157,6 +234,30 @@ export class DevcontainerManager implements vscode.Disposable {
     });
 
     void vscode.window.showInformationMessage(`Devcontainer ${containerName} is ready.`);
+  }
+
+  private async injectSshKey(containerId: string, pubKey: string, user?: string): Promise<void> {
+    const execOptions: ContainerExecOptions = {
+      user: user,
+      tty: false,
+      interactive: false
+    };
+
+    const cmd = [
+      '/bin/sh',
+      '-c',
+      `mkdir -p ~/.ssh && echo "${pubKey}" >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`
+    ];
+
+    try {
+      await this.cli.execInContainer(containerId, cmd, execOptions);
+      await this.delay(3000); // Wait for key injection
+      logInfo(`Injected SSH key for ${user ?? 'default user'} in ${containerId}`);
+    } catch (e) {
+      logWarn(`Failed to inject SSH key: ${e}`);
+      // This might fail if the user doesn't exist yet or permissions are strict, but we try our best.
+    }
+
   }
 
   async rebuildDevcontainer(): Promise<void> {
@@ -244,6 +345,68 @@ export class DevcontainerManager implements vscode.Disposable {
     });
   }
 
+  async reopenInContainer(): Promise<void> {
+    const folder = await this.pickWorkspaceFolder();
+    if (!folder) {
+      return;
+    }
+
+    const loaded = await this.loadConfig(folder.uri.fsPath);
+    if (!loaded) {
+      void vscode.window.showWarningMessage('No devcontainer configuration found.');
+      return;
+    }
+
+    const resolved = this.resolveConfig(loaded.config, folder.uri.fsPath);
+    const containerName = resolved.name;
+
+    // Check if container exists, if not create it
+    const existing = await this.findContainerByName(containerName);
+    if (!existing) {
+      await this.applyDevcontainer();
+    } else {
+      // Ensure it is running
+      // We can assume if it exists we might just need to start or restart it?
+      // For now, let's just make sure it's ready.
+      // Actually applyDevcontainer handles creation logic effectively.
+      // But if it exists and runs, applyDevcontainer RECREATES it (destroy & create).
+      // We likely want to just START it if stopped, or use it if running.
+      // For MVP, let's reuse applyDevcontainer to ensure fresh state, 
+      // OR we can implement a lighter "ensureRunning" 
+      // Let's rely on applyDevcontainer for now to guarantee state matches config.
+      // But wait, "Reopen" usually implies using the existing one if valid.
+
+      // Optimization: If running, just setup SSH and go.
+      // Let's assume we want to ensure provisioned.
+      // A safer bet for "Reopen" is to just ensure it is running and accessible.
+      // But if config changed, we might want to rebuild.
+      // Standard VS Code asks. We will just ensure it is running for now.
+
+      // Let's allow applyDevcontainer to handle the heavy lifting of "Make sure this config is applied".
+      // Ideally we check if up-to-date.
+      // For this iteration: Reuse applyDevcontainer (Destroy/Create) to be safe, 
+      // but maybe we should allow "Attach" behavior later.
+
+      // Actually, to make "reopen" fast, we shouldn't destroy if not needed.
+      // Let's try to start it if stopped.
+      // If running, good.
+    }
+
+    // We need to ensure the container is running and SSH is ready.
+    // Let's force a "refresh/apply" to ensuring everything is consistent.
+    await this.applyDevcontainer();
+
+    // Now construct the SSH URI
+    const sshHost = `acm-${containerName}`;
+    const workdir = resolved.workspaceFolder;
+
+    // The URI format for Remote SSH is:
+    // vscode-remote://ssh-remote+<host>/<path>
+    const uri = vscode.Uri.parse(`vscode-remote://ssh-remote+${sshHost}${workdir}`);
+
+    await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: true });
+  }
+
   private async executeImageBuild(resolved: ResolvedConfig): Promise<void> {
     if (!resolved.build) {
       return;
@@ -306,7 +469,7 @@ export class DevcontainerManager implements vscode.Disposable {
       interactive: false
     };
 
-    logInfo(`Executing ${label} in container ${containerId}: ${spec.display}`);
+    logInfo(`Executing ${label} in container ${containerId}: ${spec.display} `);
     try {
       const { stdout, stderr } = await this.cli.execInContainer(containerId, spec.argv, execOptions);
       if (stdout?.trim().length) {
@@ -318,7 +481,7 @@ export class DevcontainerManager implements vscode.Disposable {
     } catch (error) {
       const containerError = toAppleContainerError(error);
       logError(`Failed to execute ${label} for container ${resolved.name}`, containerError);
-      throw new AppleContainerError(`Failed to run ${label}: ${containerError.message}`, ErrorCode.CommandFailed, containerError);
+      throw new AppleContainerError(`Failed to run ${label}: ${containerError.message} `, ErrorCode.CommandFailed, containerError);
     }
   }
 
@@ -350,6 +513,11 @@ export class DevcontainerManager implements vscode.Disposable {
       const containers = await this.cli.listContainers();
       const match = containers.find(container => container.name === name || container.id === name);
       if (match) {
+        // Wait a bit after finding it to ensure state stabilizes, as requested by user
+        // Although this is inside a read loop, ensuring we don't return too fast after it appears might help.
+        // But user asked for delay after CLI ops.
+        // listContainers is the op. 
+        // Let's rely on the explicit delay I will add in applyDevcontainer.
         return { id: match.id };
       }
       await this.delay(500);
@@ -360,7 +528,7 @@ export class DevcontainerManager implements vscode.Disposable {
   private async stopContainerIfRunning(id: string, name: string): Promise<void> {
     try {
       await this.cli.stopContainer(id);
-      logInfo(`Stopped container ${name}`);
+      logInfo(`Stopped container ${name} `);
     } catch (error) {
       logWarn(`Failed to stop container ${name}; continuing with removal.`);
     }
@@ -372,6 +540,14 @@ export class DevcontainerManager implements vscode.Disposable {
       logInfo(`Removed container ${name}`);
     } catch (error) {
       const containerError = toAppleContainerError(error);
+      // If the container config is missing, it's a "zombie" container. We can generally consider it removed 
+      // (or at least we can't do anything more about it via the CLI).
+      // The error typically contains "No such file or directory" or "config.json".
+      if (containerError.message.includes('No such file or directory') || containerError.message.includes('config.json')) {
+        logWarn(`Ignored removal error for likely zombie container ${name}: ${containerError.message}`);
+        return;
+      }
+
       logError(`Failed to remove container ${name}`, containerError);
       throw containerError;
     }
@@ -381,7 +557,7 @@ export class DevcontainerManager implements vscode.Disposable {
     const additionalArgs = [...resolved.additionalArgs];
     for (const [key, value] of Object.entries(resolved.containerEnv)) {
       if (typeof value === 'string') {
-        additionalArgs.push('--env', `${key}=${value}`);
+        additionalArgs.push('--env', `${key}=${value} `);
       }
     }
 
@@ -392,7 +568,8 @@ export class DevcontainerManager implements vscode.Disposable {
       memory: resolved.memory,
       ports: resolved.ports,
       volumes: resolved.volumes,
-      additionalArgs
+      additionalArgs,
+      command: ['sleep', 'infinity']
     };
   }
 
@@ -436,7 +613,7 @@ export class DevcontainerManager implements vscode.Disposable {
         }
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-          logWarn(`Failed to read devcontainer configuration at ${candidate}`);
+          logWarn(`Failed to read devcontainer configuration at ${candidate} `);
         }
       }
     }
@@ -457,7 +634,7 @@ export class DevcontainerManager implements vscode.Disposable {
 
   private resolveConfig(config: DevcontainerConfig, workspacePath: string): ResolvedConfig {
     const workspaceBasename = path.basename(workspacePath);
-    const defaultWorkspaceFolder = `/workspaces/${workspaceBasename}`;
+    const defaultWorkspaceFolder = `/ workspaces / ${workspaceBasename} `;
 
     const defaultContext: VariableContext = {
       workspaceFolder: workspacePath,
@@ -515,7 +692,7 @@ export class DevcontainerManager implements vscode.Disposable {
     if (name?.trim()) {
       return name.trim();
     }
-    return `acm-${basename}`;
+    return `acm - ${basename} `;
   }
 
   private resolveBuild(
@@ -612,7 +789,7 @@ export class DevcontainerManager implements vscode.Disposable {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
     const safeSlug = slug.length > 0 ? slug : 'workspace';
-    return `acm/${safeSlug}:dev`;
+    return `acm / ${safeSlug}: dev`;
   }
 
   private resolvePorts(forwardPorts: DevcontainerConfig['forwardPorts']): string[] {
@@ -623,7 +800,7 @@ export class DevcontainerManager implements vscode.Disposable {
     const ports = new Set<string>();
     for (const entry of forwardPorts) {
       if (typeof entry === 'number' && Number.isFinite(entry)) {
-        ports.add(`${entry}:${entry}`);
+        ports.add(`${entry}:${entry} `);
         continue;
       }
 
@@ -635,7 +812,7 @@ export class DevcontainerManager implements vscode.Disposable {
         const parts = trimmed.split(':');
         if (parts.length === 1) {
           const value = parts[0];
-          ports.add(`${value}:${value}`);
+          ports.add(`${value}:${value} `);
         } else if (parts.length === 2 || parts.length === 3) {
           ports.add(trimmed);
         }

@@ -14,13 +14,13 @@ A VS Code extension for macOS that provides visual management for Apple’s nati
 - Real-time views that clear stale data and prompt to start the system service when it is offline
 - Detects container CLI version, checks GitHub for the latest release, and surfaces inline upgrade actions
 - Optional workspace-level auto-start of the system service
-- Devcontainer workflows: apply `devcontainer.json`, rebuild containers, run post lifecycle commands, and surface Remote-SSH connection guidance
-- Lightweight, native, no external dependencies
+- Devcontainer workflows: seamless "Reopen in Container" experience using `.appcontainer/devcontainer.json`. Automatically handles SSH key injection, config management, and connection.
 
 ## System Requirements
 - macOS 26+ (Apple Silicon)
 - Apple `container` CLI installed and available in PATH
 - VS Code 1.95+
+- **Remote - SSH** extension installed
 
 ## Installation
 1. Install the extension from a packaged `.vsix` file or the Marketplace (when available).
@@ -29,23 +29,49 @@ A VS Code extension for macOS that provides visual management for Apple’s nati
 ## Quick Start
 1. Open VS Code. The “Apple Containers” view appears in the Activity Bar.
 2. If the system service is not running, start it from the System view.
-3. Use context menus or the Command Palette to manage containers and images, or create a container from the Containers view toolbar.
+3. Use context menus or the Command Palette to manage containers.
 
-## Working with Dev Containers
-The extension can recreate a development environment from a workspace `.appcontainer/devcontainer.json` (or `.appcontainer.json`) using the Apple `container` CLI.
+## DevContainer Support (Open in Container)
 
-1. Ensure your devcontainer image exposes SSH (e.g., via the official Dev Container `sshd` feature or a custom Dockerfile).
-2. Optional: run **Apple Container: Build Devcontainer Image** to execute the `build` section (Dockerfile) and tag the resulting image. The build uses `.appcontainer/devcontainer.json` definitions (`dockerfile`, `context`, `args`, `target`, etc.).
-3. Run **Apple Container: Apply Devcontainer Configuration**. The extension will:
-   - Parse `devcontainer.json`, resolve variable placeholders, and ensure the workspace folder is mounted.
-   - Stop and remove any existing container with the same name.
-   - Recreate the container with ports, volumes, environment variables, and `runArgs` mapped to the Apple container CLI.
-   - Execute `postCreateCommand` and `postStartCommand` inside the container via `container exec`.
-4. Use **Show Devcontainer Connection Instructions** to copy Remote-SSH connection details after apply or rebuild.
-5. Re-run **Rebuild Devcontainer** whenever you update `devcontainer.json`.
-6. Use **Run Devcontainer Lifecycle Commands** to manually re-trigger the post-create/start scripts.
+The extension enables a full DevContainer-like experience using Apple native containers.
 
-> ℹ️ The workspace folder is always mounted read/write. Additional `mounts` entries are supported with `${localWorkspaceFolder}` and `${containerWorkspaceFolder}` substitutions. Devcontainer `features`, `docker-compose`, and image builds are not yet supported.
+### Prerequisites
+- A project with a `.appcontainer/devcontainer.json` file.
+- The **Remote - SSH** extension installed in VS Code.
+
+### Configuration (`devcontainer.json`)
+
+Example configuration:
+
+```json
+{
+  "name": "NodeJS-Dev",
+  "image": "docker.io/library/node:18",
+  "remoteUser": "root",
+  "workspaceFolder": "/root/workspace",
+  "forwardPorts": [8080, "2222:22"],
+  "postCreateCommand": "apt-get update && apt-get install -y openssh-server && mkdir -p /run/sshd",
+  "postStartCommand": "/usr/sbin/sshd"
+}
+```
+
+> **Note:** Standard images (like `node:18`) usually need SSH installed and started. You must also forward a port to `22` (e.g., `2222:22`) so the host can connect.
+
+### How to Use
+1. Open your project folder in VS Code.
+2. Run the command **Apple Container: Reopen Folder in Container**.
+3. The extension will automatically:
+   - Create and configure the container properly.
+   - Inject a dedicated SSH key.
+   - Update your local `~/.ssh/config` (with optimizations like multiplexing).
+   - Ensure the container stays running (injects `sleep infinity` keep-alive).
+   - Open a new VS Code window connected via SSH.
+
+### Features
+- **Fast Connections:** Uses SSH ControlMaster (multiplexing) for low-latency terminal performance.
+- **Port Forwarding:** Respects `forwardPorts` (e.g., map local `2222` to container `22` for SSH, plus app ports).
+- **Auto-Provisioning:** Handles SSH keys and config automatically—no manual setup required.
+- **Resiliency:** Handles container re-creation on config changes and robustly manages lifecycle states.
 
 ## Configuration
 Add settings in your user or workspace settings:

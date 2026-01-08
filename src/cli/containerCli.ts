@@ -51,7 +51,7 @@ export interface ContainerExecOptions {
   timeout?: number;
 }
 
-export interface ContainerExecStreamOptions extends Omit<ContainerExecOptions, 'timeout'> {}
+export interface ContainerExecStreamOptions extends Omit<ContainerExecOptions, 'timeout'> { }
 
 export interface ContainerBuildOptions {
   context?: string;
@@ -88,10 +88,11 @@ export interface ContainerCreateOptions {
   volumes?: VolumeMapping[];
   additionalArgs?: string[];
   detach?: boolean;
+  command?: string[];
 }
 
 export class ContainerCli {
-  constructor(private readonly binary: string = 'container') {}
+  constructor(private readonly binary: string = 'container') { }
 
   async exec(args: string[], options: ExecOptions = {}): Promise<{ stdout: string; stderr: string }> {
     logCommand(this.binary, args);
@@ -465,6 +466,10 @@ export class ContainerCli {
     }
 
     args.push(image);
+
+    if (options.command && options.command.length > 0) {
+      args.push(...options.command);
+    }
 
     await this.exec(args);
   }

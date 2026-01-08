@@ -2,7 +2,7 @@
 
 - Project: Apple Container Manager for VS Code
 - Product Owner: TBD
-- Version: v0.1 Draft
+- Version: v0.4
 
 ---
 
@@ -16,6 +16,9 @@ Provide visual management of macOS native containers within VS Code. Users can s
 - System Engineers
   - Manage multiple images and containers and control the system service
   - Check container CLI versions and update status
+- Team Leads / Architects
+  - Define `devcontainer.json` configurations for consistent team environments
+  - Share project-specific container setups via version control
 
 ## 3. Core Design Principles
 - Activity Bar: Add an “Apple Containers” icon with three TreeViews: System, Images, and Containers
@@ -43,8 +46,10 @@ Provide visual management of macOS native containers within VS Code. Users can s
 
 ## 5. Interaction Design
 - System control: System TreeView context menu and Status Bar call `container system start|stop|restart`
-- Container actions: Context menu provides Start, Stop, Restart, Logs, Exec
+- Container actions: Context menu provides Start, Stop, Restart, Logs, Exec, Shell
+- Container Creation: Two-step wizard to configure image, resources, ports, and volumes
 - Image actions: Context menu provides Pull, Remove, Run
+- Devcontainers: Support for `.devcontainer.json` (via `.appcontainer/devcontainer.json`) to define reproducible environments
 - Updates: Toolbar or Command Palette calls GitHub API and notifies if newer
 - Auto-start: Workspace setting triggers idempotent `system start` when opening
 

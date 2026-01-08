@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "publisher": "Awei-Sumaho",
   "author": {
     "email": "awei@sumaho.live",
@@ -71,7 +71,8 @@
     "onCommand:appleContainer.devcontainer.open",
     "workspaceContains:.appcontainer/devcontainer.json",
     "workspaceContains:.appcontainer.json",
-    "workspaceContains:.vscode/settings.json"
+    "workspaceContains:.vscode/settings.json",
+    "onCommand:appleContainer.devcontainer.reopen"
   ],
   "contributes": {
     "configuration": {
@@ -79,7 +80,10 @@
       "properties": {
         "appleContainer.update.mode": {
           "type": "string",
-          "enum": ["notify", "silent"],
+          "enum": [
+            "notify",
+            "silent"
+          ],
           "default": "notify",
           "description": "Controls how update notifications are surfaced to the user."
         },
@@ -110,7 +114,13 @@
         },
         "appleContainer.logs.minimumLevel": {
           "type": "string",
-          "enum": ["debug", "info", "warn", "error", "success"],
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error",
+            "success"
+          ],
           "default": "info",
           "description": "Lowest log level emitted to the Output channel from the Apple Container plugin."
         }
@@ -317,6 +327,11 @@
           "command": "appleContainer.devcontainer.build",
           "when": "true",
           "group": "appleContainer@17"
+        },
+        {
+          "command": "appleContainer.devcontainer.reopen",
+          "when": "true",
+          "group": "appleContainer@18"
         }
       ]
     },
@@ -451,6 +466,12 @@
         "title": "Show Devcontainer Connection Instructions",
         "category": "Apple Container",
         "icon": "$(remote)"
+      },
+      {
+        "command": "appleContainer.devcontainer.reopen",
+        "title": "Reopen Folder in Container",
+        "category": "Apple Container",
+        "icon": "$(remote-explorer)"
       }
     ]
   },

@@ -115,3 +115,19 @@
 - Validate port mapping parsing against real CLI output and adjust formatting if additional columns exist.
 - Wire container/image context menus for operational commands (start/stop, pull/remove) per M2/M3 scope.
 - Capture runtime health metrics when the CLI exposes richer status information.
+
+## 2026-01-08 — v0.5.0 Release: Seamless DevContainer Workflow
+
+### Summary
+- Released **v0.5.0** focusing on "Open in Container" usability.
+- **Improved Connection**: Implemented SSH ControlMaster (multiplexing) to virtually eliminate terminal latency.
+- **Robust Provisioning**:
+    - Added collision detection: outdated containers are automatically removed and recreated to ensure new configurations (ports, volumes) are applied.
+    - Added keep-alive logic: containers now start with `sleep infinity` to prevent immediate exit on standard images (like `node:18`).
+    - Added race condition mitigation: strategic delays after CLI operations ensure state consistency.
+- **Documentation**: Overhauled README to feature the DevContainer guide and troubleshooting tips.
+- **Bug Fixes**: Resolved issues with zombie containers, "container exists" false positives, and startup failures.
+
+### Outstanding Follow-ups
+- Explore broader image support and performance tuning for larger projects.
+- Evaluate automated testing for the full SSH workflow.

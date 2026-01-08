@@ -332,6 +332,11 @@ function registerCommands(
       await withCommandHandling('Displaying devcontainer connection instructions', async () => {
         await devcontainerManager.showOpenInstructions();
       });
+    }),
+    vscode.commands.registerCommand('appleContainer.devcontainer.reopen', async () => {
+      await withCommandHandling('Reopening folder in devcontainer', async () => {
+        await devcontainerManager.reopenInContainer();
+      });
     })
   );
 }
