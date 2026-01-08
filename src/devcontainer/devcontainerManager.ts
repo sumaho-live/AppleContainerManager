@@ -171,7 +171,6 @@ export class DevcontainerManager implements vscode.Disposable {
 
     // Inject SSH setup payload into postCreateCommand or minimal init
     // For now we append a command to inject the key if not present
-    const sshInjectionCmd = `mkdir -p ~/.ssh && echo "${sshKey}" >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`;
 
     // We prepend this to the postCreateCommand or user command to ensure it runs early
     // However, since we run post commands *after* creation via exec, we can just run it as the very first post-command step.
