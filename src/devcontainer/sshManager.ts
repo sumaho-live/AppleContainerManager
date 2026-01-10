@@ -25,7 +25,7 @@ export class SshManager {
             try {
                 const pubKey = await fs.readFile(`${this.keyPath}.pub`, 'utf8');
                 return pubKey.trim();
-            } catch (error) {
+            } catch {
                 // Key doesn't exist, generate it
             }
 
@@ -54,9 +54,9 @@ Host acm-${containerName}
     ControlPath ~/.ssh/acm-%C
     ControlPersist 10m
     ServerAliveInterval 15
-    ServerAliveCountMax 4
+    ServerAliveCountMax 20
     TCPKeepAlive yes
-    ConnectTimeout 15
+    ConnectTimeout 60
 `;
 
             let configContent = '';

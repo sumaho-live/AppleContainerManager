@@ -140,7 +140,7 @@ export class DevcontainerManager implements vscode.Disposable {
         // Ensure it is running
         // Ensure it is running
         await this.cli.startContainer(existing.id);
-        await this.delay(3000); // Wait for container to stabilize
+        await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for container to stabilize
 
         // We still need to ensure SSH keys and config are up to date
         const sshManager = new SshManager();
@@ -153,6 +153,11 @@ export class DevcontainerManager implements vscode.Disposable {
         const sshPort = this.detectForwardedPort(resolved.ports, 22) ?? '2222';
         await sshManager.updateConfig(containerName, sshPort, resolved.remoteUser);
 
+        await this.runPostCommands(existing.id, resolved, {
+          runCreate: false,
+          runStart: Boolean(resolved.postStartCommand)
+        });
+
         void vscode.window.showInformationMessage(`Devcontainer ${containerName} is ready (reused).`);
         return;
       }
@@ -161,7 +166,7 @@ export class DevcontainerManager implements vscode.Disposable {
       await this.stopContainerIfRunning(existing.id, containerName);
       await this.stopContainerIfRunning(existing.id, containerName);
       await this.removeContainer(existing.id, containerName);
-      await this.delay(3000); // Wait for cleanup
+      await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for cleanup
     }
 
     const sshManager = new SshManager();
@@ -177,7 +182,7 @@ export class DevcontainerManager implements vscode.Disposable {
 
     try {
       await this.cli.createContainer(createOptions);
-      await this.delay(3000); // Wait for creation to complete
+      await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for creation to complete
       logInfo(`Container ${containerName} created from devcontainer configuration.`);
     } catch (error) {
       const err = toAppleContainerError(error);
@@ -187,7 +192,7 @@ export class DevcontainerManager implements vscode.Disposable {
           // Force remove the conflicting container name/id
           // Force remove the conflicting container name/id
           await this.removeContainer(containerName, containerName);
-          await this.delay(3000); // Wait for removal
+          await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for removal
         } catch (rmError) {
           logWarn(`Attempt to remove conflicting container ${containerName} failed: ${rmError}`);
           // Proceed to try creation again anyway, though it might fail again if not removed
@@ -195,7 +200,7 @@ export class DevcontainerManager implements vscode.Disposable {
         // Retry creation
         // Retry creation
         await this.cli.createContainer(createOptions);
-        await this.delay(3000); // Wait for creation to complete
+        await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for creation to complete
         logInfo(`Container ${containerName} recreated successfully.`);
       } else {
         throw err;
@@ -216,7 +221,7 @@ export class DevcontainerManager implements vscode.Disposable {
     // BUT if we caught "exists", it might be stopped.
     // So ensuring start is good.
     await this.cli.startContainer(created.id ?? containerName);
-    await this.delay(3000); // Wait for startup
+    await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for startup
 
     // Inject SSH key immediately after container is waiting
     await this.injectSshKey(created.id ?? containerName, sshKey, resolved.remoteUser);
@@ -250,7 +255,7 @@ export class DevcontainerManager implements vscode.Disposable {
 
     try {
       await this.cli.execInContainer(containerId, cmd, execOptions);
-      await this.delay(3000); // Wait for key injection
+      await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for key injection
       logInfo(`Injected SSH key for ${user ?? 'default user'} in ${containerId}`);
     } catch (e) {
       logWarn(`Failed to inject SSH key: ${e}`);
@@ -528,7 +533,7 @@ export class DevcontainerManager implements vscode.Disposable {
     try {
       await this.cli.stopContainer(id);
       logInfo(`Stopped container ${name} `);
-    } catch (error) {
+    } catch {
       logWarn(`Failed to stop container ${name}; continuing with removal.`);
     }
   }

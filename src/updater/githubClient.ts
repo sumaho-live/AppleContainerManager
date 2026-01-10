@@ -3,10 +3,17 @@ import https from 'node:https';
 import { AppleContainerError, ErrorCode } from '../core/errors';
 import { log, logError } from '../core/logger';
 
+export interface GithubReleaseAsset {
+  name: string;
+  browserDownloadUrl: string;
+  contentType: string;
+}
+
 export interface GithubRelease {
   tagName: string;
   htmlUrl: string;
   publishedAt?: string;
+  assets: GithubReleaseAsset[];
 }
 
 const RELEASE_URL = 'https://api.github.com/repos/apple/container/releases/latest';
@@ -42,16 +49,28 @@ export const fetchLatestRelease = async (): Promise<GithubRelease> => {
               tag_name?: string;
               html_url?: string;
               published_at?: string;
+              assets?: {
+                name?: string;
+                browser_download_url?: string;
+                content_type?: string;
+              }[];
             };
 
             if (!data.tag_name) {
               throw new AppleContainerError('GitHub response missing tag_name', ErrorCode.NetworkError);
             }
 
+            const assets: GithubReleaseAsset[] = (data.assets ?? []).map(asset => ({
+              name: asset.name ?? '',
+              browserDownloadUrl: asset.browser_download_url ?? '',
+              contentType: asset.content_type ?? ''
+            }));
+
             resolve({
               tagName: data.tag_name,
               htmlUrl: data.html_url ?? 'https://github.com/apple/container/releases/latest',
-              publishedAt: data.published_at
+              publishedAt: data.published_at,
+              assets
             });
           } catch (error) {
             reject(new AppleContainerError('Failed to parse GitHub response', ErrorCode.NetworkError, error));

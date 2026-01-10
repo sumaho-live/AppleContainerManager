@@ -2,7 +2,7 @@ import { ChildProcessWithoutNullStreams, execFile, spawn } from 'node:child_proc
 import { promisify } from 'node:util';
 
 import { AppleContainerError, ErrorCode, toAppleContainerError } from '../core/errors';
-import { log, logCommand, logError } from '../core/logger';
+import { log, logCommand, logError, logWarn } from '../core/logger';
 
 const execFileAsync = promisify(execFile);
 
@@ -51,7 +51,7 @@ export interface ContainerExecOptions {
   timeout?: number;
 }
 
-export interface ContainerExecStreamOptions extends Omit<ContainerExecOptions, 'timeout'> { }
+export type ContainerExecStreamOptions = Omit<ContainerExecOptions, 'timeout'>;
 
 export interface ContainerBuildOptions {
   context?: string;
@@ -126,7 +126,8 @@ export class ContainerCli {
   }
 
   async system(action: SystemAction): Promise<string> {
-    const { stdout } = await this.exec(['system', action]);
+    const timeout = action === 'stop' ? 60000 : undefined;
+    const { stdout } = await this.exec(['system', action], { timeout });
     return stdout;
   }
 
@@ -287,7 +288,61 @@ export class ContainerCli {
   }
 
   async stopContainer(containerId: string): Promise<void> {
-    await this.exec(['stop', containerId]);
+    try {
+      // Attempt graceful stop with 30s timeout
+      await this.exec(['stop', containerId], { timeout: 30000 });
+    } catch {
+      logWarn(`Standard stop failed for ${containerId}, retrying with short timeout...`);
+      // Retry with 1 second timeout to force kill sooner, with strict 15s execution timeout
+      try {
+        await this.exec(['stop', '--time', '1', containerId], { timeout: 15000 });
+      } catch (retryError) {
+        logError(`Force stop also failed/timed out for ${containerId}`, retryError);
+        throw this.normalizeError(retryError, ['stop', '--time', '1', containerId]);
+      }
+    }
+  }
+
+  async killContainer(containerId: string): Promise<void> {
+    try {
+      await this.exec(['kill', containerId], { timeout: 10000 });
+    } catch (error) {
+      logWarn(`Native kill failed for ${containerId}, attempting to kill process directly... ${error}`);
+      await this.killContainerProcess(containerId);
+    }
+  }
+
+  private async killContainerProcess(containerId: string): Promise<void> {
+    try {
+      // Find the process ID
+      const { stdout } = await execFileAsync('ps', ['-ax', '-o', 'pid,command']);
+      const lines = stdout.split('\n');
+
+      // Look for container runtime process with matching UUID
+      // Example: .../container-runtime-linux start ... --uuid <id> ...
+      const processLine = lines.find(line =>
+        line.includes('container-runtime') &&
+        line.includes(`--uuid ${containerId}`)
+      );
+
+      if (!processLine) {
+        logWarn(`No process found for container ${containerId}`);
+        return;
+      }
+
+      const match = processLine.match(/^\s*(\d+)/);
+      if (!match) {
+        logWarn(`Could not parse PID for container ${containerId} from line: ${processLine}`);
+        return;
+      }
+
+      const pid = match[1];
+      log(`Killing process ${pid} for container ${containerId}`);
+      await execFileAsync('kill', ['-9', pid]);
+    } catch (error) {
+      logError(`Failed to kill process for container ${containerId}`, error);
+      throw error;
+    }
   }
 
   async restartContainer(containerId: string): Promise<void> {

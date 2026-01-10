@@ -14,6 +14,8 @@ import { logFormatter } from './core/logFormatter';
 import { ContainerLogManager } from './core/containerLogs';
 import { DevcontainerManager } from './devcontainer/devcontainerManager';
 
+import { UpdateManager } from './updater/updateManager';
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   log('Activating Apple Container Manager extension');
 
@@ -23,6 +25,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const containersProvider = new ContainersTreeProvider(cli, logManager);
   const imagesProvider = new ImagesTreeProvider(cli);
   const devcontainerManager = new DevcontainerManager(cli);
+  const updateManager = new UpdateManager(cli);
 
   context.subscriptions.push(
     systemProvider,
@@ -31,6 +34,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     logManager,
     logFormatter,
     devcontainerManager,
+    updateManager,
     vscode.window.registerTreeDataProvider('appleContainerSystem', systemProvider),
     vscode.window.registerTreeDataProvider('appleContainerContainers', containersProvider),
     vscode.window.registerTreeDataProvider('appleContainerImages', imagesProvider)
@@ -125,9 +129,23 @@ function registerCommands(
       }
       const identifier = item.container.name ?? item.container.id;
       await withCommandHandling(`Stopping container ${identifier}`, async () => {
-        await cli.stopContainer(item.container.id);
-        await containersProvider.refresh();
-        void vscode.window.showInformationMessage(`Container ${identifier} stopped.`);
+        try {
+          await cli.stopContainer(item.container.id);
+          await containersProvider.refresh();
+          void vscode.window.showInformationMessage(`Container ${identifier} stopped.`);
+        } catch (error) {
+          const selection = await vscode.window.showWarningMessage(
+            `Container ${identifier} failed to stop gracefully. Force kill?`,
+            'Force Kill'
+          );
+          if (selection === 'Force Kill') {
+            await cli.killContainer(item.container.id);
+            await containersProvider.refresh();
+            void vscode.window.showInformationMessage(`Container ${identifier} force killed.`);
+          } else {
+            throw error;
+          }
+        }
       });
     }),
     vscode.commands.registerCommand('appleContainer.container.exec', async (item?: ContainerTreeItem) => {

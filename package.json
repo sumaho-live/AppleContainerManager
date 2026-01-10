@@ -19,6 +19,7 @@
   "keywords": [
     "apple",
     "container",
+    "devcontainer",
     "macos",
     "native",
     "cli"
@@ -123,6 +124,21 @@
           ],
           "default": "info",
           "description": "Lowest log level emitted to the Output channel from the Apple Container plugin."
+        },
+        "appleContainer.update.autoUpdate": {
+          "type": "boolean",
+          "default": false,
+          "description": "automatically upgrade to the new version when a new version is detected in github."
+        },
+        "appleContainer.update.keepData": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to retain historical data when upgrading."
+        },
+        "appleContainer.cli.executionCoolDown": {
+          "type": "number",
+          "default": 3000,
+          "description": "Cooldown time (ms) after executing CLI commands to ensure stability."
         }
       }
     },
@@ -165,11 +181,6 @@
           "group": "navigation@2"
         },
         {
-          "command": "appleContainer.system.stop",
-          "when": "view == appleContainerSystem && appleContainer.system.running",
-          "group": "navigation@2"
-        },
-        {
           "command": "appleContainer.images.refresh",
           "when": "view == appleContainerImages && appleContainer.system.running",
           "group": "navigation@1"
@@ -183,11 +194,6 @@
           "command": "appleContainer.containers.refresh",
           "when": "view == appleContainerContainers && appleContainer.system.running",
           "group": "navigation@1"
-        },
-        {
-          "command": "appleContainer.update.check",
-          "when": "view == appleContainerSystem",
-          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -203,48 +209,50 @@
         },
         {
           "command": "appleContainer.container.start",
-          "when": "view == appleContainerContainers && viewItem =~ /container-stopped(-deletable)?(-logging)?$/",
-          "group": "inline@1"
+          "when": "view == appleContainerContainers && viewItem =~ /container-stopped(-deletable)?(-logging)?$/"
         },
         {
           "command": "appleContainer.container.stop",
-          "when": "view == appleContainerContainers && viewItem =~ /container-running(-logging)?$/",
-          "group": "inline@1"
+          "when": "view == appleContainerContainers && viewItem =~ /container-running(-logging)?$/"
         },
         {
           "command": "appleContainer.container.logs.start",
-          "when": "view == appleContainerContainers && viewItem =~ /container-running$/",
-          "group": "inline@2"
+          "when": "view == appleContainerContainers && viewItem =~ /container-running$/"
         },
         {
           "command": "appleContainer.container.logs.stop",
-          "when": "view == appleContainerContainers && viewItem =~ /-logging$/",
-          "group": "inline@2"
+          "when": "view == appleContainerContainers && viewItem =~ /-logging$/"
         },
         {
           "command": "appleContainer.container.exec",
-          "when": "view == appleContainerContainers && viewItem =~ /container-(running|stopped)(-deletable)?(-logging)?$/",
-          "group": "inline@4"
+          "when": "view == appleContainerContainers && viewItem =~ /container-(running|stopped)(-deletable)?(-logging)?$/"
         },
         {
           "command": "appleContainer.container.shell",
-          "when": "view == appleContainerContainers && viewItem =~ /container-running(-logging)?$/",
-          "group": "inline@5"
+          "when": "view == appleContainerContainers && viewItem =~ /container-running(-logging)?$/"
         },
         {
           "command": "appleContainer.container.remove",
-          "when": "view == appleContainerContainers && viewItem =~ /container-stopped-deletable(-logging)?$/",
-          "group": "inline@3"
+          "when": "view == appleContainerContainers && viewItem =~ /container-stopped-deletable(-logging)?$/"
         },
         {
           "command": "appleContainer.image.remove",
-          "when": "view == appleContainerImages && viewItem == image-deletable",
-          "group": "inline@2"
+          "when": "view == appleContainerImages && viewItem == image-deletable"
         },
         {
           "command": "appleContainer.system.upgrade",
           "when": "view == appleContainerSystem && viewItem == system-upgrade-available",
           "group": "inline@3"
+        },
+        {
+          "command": "appleContainer.update.check",
+          "when": "view == appleContainerSystem",
+          "group": "2_modification"
+        },
+        {
+          "command": "appleContainer.system.stop",
+          "when": "view == appleContainerSystem && atom == appleContainer.system.running",
+          "group": "2_modification"
         }
       ],
       "commandPalette": [
@@ -478,17 +486,18 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint ./src --ext .ts",
+    "lint": "eslint ./src",
     "package": "vsce package",
     "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {
-    "@types/node": "^20.11.30",
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^22.8.6",
     "@types/vscode": "^1.95.0",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
-    "eslint": "^8.57.0",
-    "typescript": "^5.4.0",
-    "vsce": "^2.15.0"
+    "@vscode/vsce": "^3.2.1",
+    "eslint": "^9.14.0",
+    "globals": "^15.11.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.12.2"
   }
 }
