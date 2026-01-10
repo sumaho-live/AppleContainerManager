@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.5.1] - 2026-01-10
+### Fixed
+- Removed unused variable `sshInjectionCmd` in `devcontainerManager.ts`.
+
+## [0.5.0] - 2026-01-08
+### Added
+- SSH ControlMaster support for faster terminal connections.
+- Automatic collision detection and recreation for devcontainers to apply new configurations.
+- Keep-alive (`sleep infinity`) for containers to prevent immediate exit.
+
+### Changed
+- Overhauled README with DevContainer guide and troubleshooting tips.
+
+### Fixed
+- Resolved issues with zombie containers and false positive "container exists" errors.
+- Fixed startup failures by adding strategic delays after CLI operations.
+
 ## [0.4.1] - 2025-11-01
 ### Added
 - Devcontainer tooling: apply/rebuild commands that read `devcontainer.json`, recreate containers, and run `postCreate`/`postStart` lifecycle hooks through the Apple CLI.
@@ -88,6 +105,10 @@ All notable changes to this project will be documented in this file. The format 
 ## [0.2.1] - 2025-10-28
 ### Added
 - Initial alpha validation for the Apple `container` CLI integration and VS Code extension scaffolding.
+
+[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.5.1...HEAD
+[0.5.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.5.1
+[0.5.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.5.0
 
 [0.4.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.4.0
 [0.3.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.3.1

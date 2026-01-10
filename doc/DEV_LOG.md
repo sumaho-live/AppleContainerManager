@@ -131,3 +131,9 @@
 ### Outstanding Follow-ups
 - Explore broader image support and performance tuning for larger projects.
 - Evaluate automated testing for the full SSH workflow.
+
+## 2026-01-10 — Maintenance and Documentation
+
+### Summary
+- Fixed code linting issues (removed unused variable in `devcontainerManager.ts`).
+- Updated `CHANGELOG.md` to catch up with v0.5.0 release details and document recent fixes.
