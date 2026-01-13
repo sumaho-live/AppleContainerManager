@@ -154,7 +154,7 @@ export class DevcontainerManager implements vscode.Disposable {
         await sshManager.updateConfig(containerName, sshPort, resolved.remoteUser);
 
         await this.runPostCommands(existing.id, resolved, {
-          runCreate: false,
+          runCreate: Boolean(resolved.postCreateCommand),
           runStart: Boolean(resolved.postStartCommand)
         });
 
@@ -450,7 +450,14 @@ export class DevcontainerManager implements vscode.Disposable {
     stages: { runCreate: boolean; runStart: boolean }
   ): Promise<void> {
     if (stages.runCreate && resolved.postCreateCommand) {
-      await this.executeLifecycleCommand(containerId, 'postCreateCommand', resolved.postCreateCommand, resolved);
+      // Check for marker file to prevent re-running postCreateCommand
+      const hasRun = await this.checkMarker(containerId, 'post-create-done', resolved.remoteUser);
+      if (!hasRun) {
+        await this.executeLifecycleCommand(containerId, 'postCreateCommand', resolved.postCreateCommand, resolved);
+        await this.createMarker(containerId, 'post-create-done', resolved.remoteUser);
+      } else {
+        logInfo(`Skipping postCreateCommand for ${containerId} (already run).`);
+      }
     }
 
     if (stages.runStart && resolved.postStartCommand) {
@@ -1085,6 +1092,48 @@ export class DevcontainerManager implements vscode.Disposable {
       }
     }
     return undefined;
+  }
+
+  private async checkMarker(containerId: string, marker: string, user?: string): Promise<boolean> {
+    const execOptions: ContainerExecOptions = {
+      user: user,
+      tty: false,
+      interactive: false
+    };
+
+    // Check if marker exists in ~/.apple-container-state/
+    const cmd = [
+      '/bin/sh',
+      '-c',
+      `test -f ~/.apple-container-state/${marker} && echo "yes"`
+    ];
+
+    try {
+      const { stdout } = await this.cli.execInContainer(containerId, cmd, execOptions);
+      return stdout?.trim() === 'yes';
+    } catch {
+      return false;
+    }
+  }
+
+  private async createMarker(containerId: string, marker: string, user?: string): Promise<void> {
+    const execOptions: ContainerExecOptions = {
+      user: user,
+      tty: false,
+      interactive: false
+    };
+
+    const cmd = [
+      '/bin/sh',
+      '-c',
+      `mkdir -p ~/.apple-container-state && touch ~/.apple-container-state/${marker}`
+    ];
+
+    try {
+      await this.cli.execInContainer(containerId, cmd, execOptions);
+    } catch (e) {
+      logWarn(`Failed to create state marker ${marker}: ${e}`);
+    }
   }
 
   private delay(ms: number): Promise<void> {

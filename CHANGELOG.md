@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.6.0] - 2026-01-13
+### Added
+- **Safety**: Confirmation dialogs for container and image removal to prevent accidental deletions.
+- **Observability**: New "Export Logs..." command to save container logs to a file for debugging or sharing.
+- **Devcontainer**: Implemented "run-once" checks for `postCreateCommand` to prevent repeated execution when reusing containers.
+
+### Changed
+- Devcontainer `postStartCommand` continues to run on every start, distinct from `postCreateCommand`.
+
 ## [0.5.1] - 2026-01-10
 ### Fixed
 - Removed unused variable `sshInjectionCmd` in `devcontainerManager.ts`.
@@ -106,7 +115,8 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - Initial alpha validation for the Apple `container` CLI integration and VS Code extension scaffolding.
 
-[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.5.1...HEAD
+[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.6.0...HEAD
+[0.6.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.6.0
 [0.5.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.5.1
 [0.5.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.5.0
 

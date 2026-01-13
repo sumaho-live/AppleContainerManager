@@ -33,7 +33,7 @@ export class ContainerLogManager implements vscode.Disposable {
   private readonly stateEmitter = new vscode.EventEmitter<ContainerLogStateEvent>();
   private readonly history = new Map<string, ContainerLogEntry[]>();
 
-  constructor(private readonly cli: ContainerCli) {}
+  constructor(private readonly cli: ContainerCli) { }
 
   readonly onDidChangeState = this.stateEmitter.event;
 
@@ -120,6 +120,19 @@ export class ContainerLogManager implements vscode.Disposable {
     for (const containerId of Array.from(this.sessions.keys())) {
       this.stopStreaming(containerId);
     }
+  }
+
+  async exportLogs(containerId: string, uri: vscode.Uri): Promise<void> {
+    const entries = this.history.get(containerId) ?? [];
+    if (entries.length === 0) {
+      return;
+    }
+
+    const content = entries.map(entry => {
+      return `[${entry.timestamp.toISOString()}] [${entry.severity.toUpperCase()}] ${entry.message}`;
+    }).join('\n');
+
+    await vscode.workspace.fs.writeFile(uri, Buffer.from(content));
   }
 
   dispose(): void {

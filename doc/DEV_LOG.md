@@ -137,3 +137,15 @@
 ### Summary
 - Fixed code linting issues (removed unused variable in `devcontainerManager.ts`).
 - Updated `CHANGELOG.md` to catch up with v0.5.0 release details and document recent fixes.
+
+## 2026-01-13 — v0.6.0 Release: Safety & Observability
+
+### Summary
+- **Released v0.6.0** focusing on user safety and debugging tools.
+- **Safety**: Added confirmation dialogs for destructive actions (Container/Image removal) to prevent accidental data loss.
+- **Observability**: Introduced "Export Logs" feature to save container logs to files for easier sharing and analysis.
+- **Robustness**: Hardened Devcontainer workflow with "run-once" checks for `postCreateCommand` using internal marker files.
+
+### Outstanding Follow-ups
+- Monitor user feedback on the new safety dialogs (are they too intrusive?).
+- Consider adding "Don't show again" option for confirmations in future updates.

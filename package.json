@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "publisher": "Awei-Sumaho",
   "author": {
     "email": "awei@sumaho.live",
@@ -59,6 +59,7 @@
     "onCommand:appleContainer.container.stop",
     "onCommand:appleContainer.container.logs.start",
     "onCommand:appleContainer.container.logs.stop",
+    "onCommand:appleContainer.container.logs.export",
     "onCommand:appleContainer.container.remove",
     "onCommand:appleContainer.container.create",
     "onCommand:appleContainer.system.upgrade",
@@ -222,6 +223,10 @@
         {
           "command": "appleContainer.container.logs.stop",
           "when": "view == appleContainerContainers && viewItem =~ /-logging$/"
+        },
+        {
+          "command": "appleContainer.container.logs.export",
+          "when": "view == appleContainerContainers"
         },
         {
           "command": "appleContainer.container.exec",
@@ -397,6 +402,12 @@
         "title": "Stop Container Log Stream",
         "category": "Apple Container",
         "icon": "$(sync-ignored)"
+      },
+      {
+        "command": "appleContainer.container.logs.export",
+        "title": "Export Logs…",
+        "category": "Apple Container",
+        "icon": "$(save)"
       },
       {
         "command": "appleContainer.container.remove",

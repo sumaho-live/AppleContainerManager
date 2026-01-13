@@ -227,6 +227,32 @@ function registerCommands(
         }
       });
     }),
+    vscode.commands.registerCommand('appleContainer.container.logs.export', async (item?: ContainerTreeItem) => {
+      if (!item?.container || item.container.id === 'empty-containers') {
+        return;
+      }
+      const identifier = item.container.name ?? item.container.id;
+      const history = logManager.getHistory(item.container.id);
+      if (history.length === 0) {
+        void vscode.window.showInformationMessage(`No logs captured for ${identifier} yet. Start streaming logs first.`);
+        return;
+      }
+
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(`${identifier.replace(/[^a-zA-Z0-9-_]/g, '_')}.log`),
+        filters: { 'Log files': ['log', 'txt'] },
+        saveLabel: 'Export Logs'
+      });
+
+      if (!uri) {
+        return;
+      }
+
+      await withCommandHandling(`Exporting logs for ${identifier}`, async () => {
+        await logManager.exportLogs(item.container.id, uri);
+        void vscode.window.showInformationMessage(`Logs exported to ${uri.fsPath}`);
+      });
+    }),
     vscode.commands.registerCommand('appleContainer.container.remove', async (item?: ContainerTreeItem) => {
       if (!item?.container || item.container.id === 'empty-containers') {
         return;
@@ -235,6 +261,15 @@ function registerCommands(
       const identifier = item.container.name ?? item.container.id;
       if (isContainerRunningStatus(item.container.status)) {
         void vscode.window.showWarningMessage(`Container ${identifier} is running. Stop it before removal.`);
+        return;
+      }
+
+      const confirmation = await vscode.window.showWarningMessage(
+        `Are you sure you want to remove container ${identifier}?`,
+        { modal: true },
+        'Remove'
+      );
+      if (confirmation !== 'Remove') {
         return;
       }
 
@@ -256,6 +291,15 @@ function registerCommands(
       }
 
       const references = buildImageRemovalReferences(item.image);
+
+      const confirmation = await vscode.window.showWarningMessage(
+        `Are you sure you want to remove image ${references[0] ?? item.image.id}?`,
+        { modal: true },
+        'Remove'
+      );
+      if (confirmation !== 'Remove') {
+        return;
+      }
 
       await withCommandHandling(`Removing image ${references[0] ?? item.image.id}`, async () => {
         await cli.removeImage(references);
