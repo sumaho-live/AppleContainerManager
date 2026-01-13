@@ -327,7 +327,7 @@ function registerCommands(
         await containersProvider.refresh();
         const identifier = result.name ?? result.image;
         void vscode.window.showInformationMessage(`Container ${identifier} created successfully.`);
-      });
+      }, 'Creating container...');
     }),
     vscode.commands.registerCommand('appleContainer.refresh', async () => {
       await withCommandHandling('Refreshing Apple container resources', async () => {
@@ -373,17 +373,17 @@ function registerCommands(
     vscode.commands.registerCommand('appleContainer.devcontainer.build', async () => {
       await withCommandHandling('Building devcontainer image', async () => {
         await devcontainerManager.buildDevcontainer();
-      });
+      }, 'Building devcontainer image...');
     }),
     vscode.commands.registerCommand('appleContainer.devcontainer.apply', async () => {
       await withCommandHandling('Applying devcontainer configuration', async () => {
         await devcontainerManager.applyDevcontainer();
-      });
+      }, 'Applying devcontainer configuration...');
     }),
     vscode.commands.registerCommand('appleContainer.devcontainer.rebuild', async () => {
       await withCommandHandling('Rebuilding devcontainer', async () => {
         await devcontainerManager.rebuildDevcontainer();
-      });
+      }, 'Rebuilding devcontainer...');
     }),
     vscode.commands.registerCommand('appleContainer.devcontainer.runPostCommands', async () => {
       await withCommandHandling('Running devcontainer lifecycle commands', async () => {
@@ -524,10 +524,20 @@ function isUpdateAvailable(currentVersion?: string, latestVersion?: string): boo
   return false;
 }
 
-async function withCommandHandling(message: string, action: () => Promise<void>): Promise<void> {
+async function withCommandHandling(message: string, action: () => Promise<void>, progressTitle?: string): Promise<void> {
   log(message);
   try {
-    await action();
+    if (progressTitle) {
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: progressTitle,
+        cancellable: false
+      }, async () => {
+        await action();
+      });
+    } else {
+      await action();
+    }
   } catch (error) {
     const containerError = error instanceof AppleContainerError ? error : new AppleContainerError('Command failed', ErrorCode.CommandFailed, error);
     events.emit('error', containerError);

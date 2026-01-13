@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.6.1] - 2026-01-13
+### Added
+- **Experience**: Added progress indicators for long-running operations (Container Creation, Devcontainer Build/Apply).
+
 ## [0.6.0] - 2026-01-13
 ### Added
 - **Safety**: Confirmation dialogs for container and image removal to prevent accidental deletions.
@@ -115,7 +119,8 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - Initial alpha validation for the Apple `container` CLI integration and VS Code extension scaffolding.
 
-[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.6.0...HEAD
+[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.6.1...HEAD
+[0.6.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.6.1
 [0.6.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.6.0
 [0.5.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.5.1
 [0.5.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.5.0

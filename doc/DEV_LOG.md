@@ -149,3 +149,13 @@
 ### Outstanding Follow-ups
 - Monitor user feedback on the new safety dialogs (are they too intrusive?).
 - Consider adding "Don't show again" option for confirmations in future updates.
+
+## 2026-01-13 — v0.6.1 Release: Experience Improvements
+
+### Summary
+- **Released v0.6.1** to improve perceived performance and responsiveness.
+- **Experience**: Added `vscode.window.withProgress` indicators to long-running operations (Container Creation, Devcontainer Build/Apply/Rebuild). Use visual feedback to prevent users from thinking the extension has hung.
+
+### Technical Details
+- Refactored `withCommandHandling` in `extension.ts` to accept an optional `progressTitle`.
+- Wrapped relevant command logic in `withProgress` blocks.
