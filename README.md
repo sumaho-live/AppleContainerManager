@@ -2,6 +2,9 @@
 
 A VS Code extension for macOS that provides visual management for Apple’s native container environment (`container` CLI). It enables viewing images and containers, starting and stopping services, viewing logs, and checking for container CLI updates — all without Docker Desktop.
 
+> [!WARNING]
+> Apple Container is currently in active development. You may experience SSH connection interruptions or unresponsive containers, which in severe cases could lead to **data loss**. This is not an issue with the extension itself. We are continuously working on solutions. If you have any workaround or suggestions, please [submit an issue](https://github.com/sumaho-live/AppleContainerManager/issues).
+
 ---
 
 ## Features

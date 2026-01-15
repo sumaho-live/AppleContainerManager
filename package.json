@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "publisher": "Awei-Sumaho",
   "author": {
     "email": "awei@sumaho.live",

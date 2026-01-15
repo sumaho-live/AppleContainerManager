@@ -244,7 +244,8 @@ export class DevcontainerManager implements vscode.Disposable {
     const execOptions: ContainerExecOptions = {
       user: user,
       tty: false,
-      interactive: false
+      interactive: false,
+      timeout: 15000 // 15s timeout to prevent hanging
     };
 
     const cmd = [

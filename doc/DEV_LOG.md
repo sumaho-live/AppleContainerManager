@@ -159,3 +159,9 @@
 ### Technical Details
 - Refactored `withCommandHandling` in `extension.ts` to accept an optional `progressTitle`.
 - Wrapped relevant command logic in `withProgress` blocks.
+
+## 2026-01-15 — v0.7.1 Release: Stability & Documentation
+
+### Summary
+- **Stability**: Added a timeout to the SSH key injection process to prevent indefinite hanging when containers are unresponsive.
+- **Documentation**: Visible warning in README about experimental status and known issues (SSH drops, data loss).

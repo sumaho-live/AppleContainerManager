@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.7.1] - 2026-01-15
+### Changed
+- **Stability**: Added a 15-second timeout to the `exec` command during SSH key injection to prevent hanging.
+- **Documentation**: Added a warning to the README about the experimental nature of the extension and potential stability issues.
+
 ## [0.7.0] - 2026-01-15
 ### Added
 - **Experience**: "Reopen in Container" status bar item that automatically appears when a devcontainer configuration is detected.
@@ -124,7 +129,8 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - Initial alpha validation for the Apple `container` CLI integration and VS Code extension scaffolding.
 
-[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.7.0...HEAD
+[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.7.1...HEAD
+[0.7.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.7.1
 [0.7.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.7.0
 [0.6.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.6.1
 [0.6.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.6.0
