@@ -27,6 +27,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const devcontainerManager = new DevcontainerManager(cli);
   const updateManager = new UpdateManager(cli);
 
+  const reopenStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  reopenStatusBarItem.command = 'appleContainer.devcontainer.reopen';
+  reopenStatusBarItem.text = '$(remote-explorer) Reopen in Container';
+  reopenStatusBarItem.tooltip = 'Reopen folder in devcontainer';
+
   context.subscriptions.push(
     systemProvider,
     containersProvider,
@@ -37,8 +42,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     updateManager,
     vscode.window.registerTreeDataProvider('appleContainerSystem', systemProvider),
     vscode.window.registerTreeDataProvider('appleContainerContainers', containersProvider),
-    vscode.window.registerTreeDataProvider('appleContainerImages', imagesProvider)
+    vscode.window.registerTreeDataProvider('appleContainerImages', imagesProvider),
+    reopenStatusBarItem
   );
+
+  const updateStatusBarVisibility = async (): Promise<void> => {
+    const files = await vscode.workspace.findFiles('{**/.devcontainer/devcontainer.json,**/.appcontainer/devcontainer.json,.appcontainer.json}', '**/node_modules/**', 1);
+    if (files.length > 0) {
+      reopenStatusBarItem.show();
+    } else {
+      reopenStatusBarItem.hide();
+    }
+  };
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => { void updateStatusBarVisibility(); }),
+    vscode.workspace.onDidCreateFiles(() => { void updateStatusBarVisibility(); }),
+    vscode.workspace.onDidDeleteFiles(() => { void updateStatusBarVisibility(); })
+  );
+
+  void updateStatusBarVisibility();
 
   const cliReady = await initializeCli(cli, containersProvider, imagesProvider);
   if (cliReady) {

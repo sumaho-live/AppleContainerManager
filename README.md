@@ -6,6 +6,7 @@ A VS Code extension for macOS that provides visual management for Apple’s nati
 
 ## Features
 - Activity Bar view: “Apple Containers” with System, Images, and Containers trees
+- **Status Bar**: "Reopen in Container" button for quick access to devcontainer workflows
 - Images view surfaces repository and tag details for quick version checks, including removal for unused images
 - Containers view now supports inline start / stop / remove controls with rich hover summaries (image, CPU / memory, ports)
 - Opt-in log streaming per container with hover action, configurable timestamps, severity filters, and inline keyword highlighting in the Output channel
@@ -112,7 +113,7 @@ Add settings in your user or workspace settings:
 
 ## Roadmap (High Level)
 - M0: CLI interface validation and system control — in progress
-- M1: TreeView, Status Bar, auto-start — planned
+- M1: TreeView, Status Bar, auto-start — in progress
 - M2: Version detection and download prompts — planned
 - M3: Full container operations and Marketplace release — planned
 
