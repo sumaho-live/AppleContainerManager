@@ -195,6 +195,16 @@ export class ContainerLogManager implements vscode.Disposable {
         timestamp
       }]);
     }
+
+    // Enforce history limit
+    const MAX_LOG_HISTORY = 5000;
+    const currentHistory = this.history.get(containerId);
+    if (currentHistory && currentHistory.length > MAX_LOG_HISTORY) {
+      // Remove oldest entries to maintain size
+      const excess = currentHistory.length - MAX_LOG_HISTORY;
+      currentHistory.splice(0, excess);
+    }
+
     const output = getOutputChannel();
     output.appendLine(formattedPlain);
   }

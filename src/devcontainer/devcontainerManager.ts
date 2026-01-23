@@ -41,6 +41,10 @@ interface DevcontainerConfig {
   postCreateCommand?: DevcontainerCommand;
   postStartCommand?: DevcontainerCommand;
   build?: DevcontainerBuildConfig;
+  hostRequirements?: {
+    cpus?: number;
+    memory?: string;
+  };
 }
 
 interface LoadedConfig {
@@ -739,6 +743,16 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       build.tags = [resolvedImage, ...build.tags];
     }
 
+    const extensionConfig = vscode.workspace.getConfiguration('appleContainer');
+    const defaultCpus = extensionConfig.get<number>('resources.defaultCpus', 4);
+    const defaultMemory = extensionConfig.get<string>('resources.defaultMemory', '8GB');
+
+    const hostReqCpus = config.hostRequirements?.cpus;
+    const hostReqMemory = config.hostRequirements?.memory;
+
+    const finalCpus = runArgsResult.cpus ?? hostReqCpus ?? defaultCpus;
+    const finalMemory = runArgsResult.memory ?? hostReqMemory ?? defaultMemory;
+
     const resolved: ResolvedConfig = {
       name: this.resolveName(config.name, workspaceBasename),
       image: resolvedImage,
@@ -747,8 +761,8 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       workspacePath,
       ports: this.resolvePorts(config.forwardPorts),
       volumes: this.resolveVolumes(config.mounts, variableContext, workspacePath, workspaceFolder),
-      cpus: runArgsResult.cpus,
-      memory: runArgsResult.memory,
+      cpus: finalCpus,
+      memory: finalMemory,
       additionalArgs: runArgsResult.additional,
       containerEnv: this.resolveEnv(config.containerEnv ?? {}, variableContext),
       postCreateCommand: config.postCreateCommand,

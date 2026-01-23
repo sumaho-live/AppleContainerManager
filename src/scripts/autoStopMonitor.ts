@@ -22,6 +22,9 @@ echo $$ > "$PIDFILE"
 
 echo "Starting auto-stop monitor (Timeout: \${TIMEOUT_MINUTES}m, Port: \${SSH_PORT})"
 
+# Grace period: Wait 2 minutes before first check to allow services to start
+sleep 120
+
 LAST_ACTIVITY=$(date +%s)
 
 while true; do

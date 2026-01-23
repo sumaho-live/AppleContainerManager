@@ -1,8 +1,8 @@
 {
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
-  "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.8.1",
+  "description": "Use Apple Container as a Dev Container in VS Code.",
+  "version": "0.8.5",
   "publisher": "Awei-Sumaho",
   "author": {
     "email": "awei@sumaho.live",
@@ -150,6 +150,16 @@
           "type": "number",
           "default": 5,
           "description": "Timeout in minutes before stopping the container due to SSH inactivity."
+        },
+        "appleContainer.resources.defaultCpus": {
+          "type": "number",
+          "default": 4,
+          "description": "Default number of CPUs to allocate when creating a container, if not specified in devcontainer.json."
+        },
+        "appleContainer.resources.defaultMemory": {
+          "type": "string",
+          "default": "8GB",
+          "description": "Default memory limit to allocate when creating a container (e.g. '8GB', '4GB'), if not specified in devcontainer.json."
         }
       }
     },

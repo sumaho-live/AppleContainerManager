@@ -50,9 +50,9 @@ Host acm-${containerName}
     IdentityFile ${this.keyPath}
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-    ControlMaster auto
-    ControlPath ~/.ssh/acm-%C
-    ControlPersist 10m
+    # ControlMaster auto
+    # ControlPath ~/.ssh/acm-%C
+    # ControlPersist 10m
     ServerAliveInterval 15
     ServerAliveCountMax 20
     TCPKeepAlive yes

@@ -188,3 +188,29 @@
 - `UpdateManager` now persists skipped versions in `globalState` to respect user preferences.
 - Uses `osascript` to handle privilege escalation for the uninstallation step.
 
+
+## 2026-01-23 — v0.8.2 Release: Memory Leak Fix
+
+### Summary
+- **Released v0.8.2** to address a critical stability issue.
+- **Stability**: Fixed an unbounded memory leak in the log manager by capping history at 5000 lines. This resolves crashes (SIGKILL) seen during extended sessions or high-volume logging.
+
+## 2026-01-23 — v0.8.3 Release: SSH Stability
+
+### Summary
+- **Released v0.8.3** to improve SSH connection reliability.
+- **Stability**: Disabled SSH `ControlMaster` (multiplexing) by default. This addresses the `kex_exchange_identification` errors caused by unstable socket forwarding.
+
+## 2026-01-23 — v0.8.4 Release: Stability & Resource Config
+
+### Summary
+- **Released v0.8.4** focusing on Devcontainer stability and configuration.
+- **Stability**: Disabled **Auto-Stop** by default to prevent accidental shutdowns. Added a 2-minute startup grace period to the Auto-Stop monitor.
+- **Configuration**: Introduced `appleContainer.resources.defaultCpus` (4) and `appleContainer.resources.defaultMemory` (8GB) to allow global resource customization when not specified in `devcontainer.json`.
+
+## 2026-01-23 — v0.8.5 Release: Resource Configuration
+
+### Summary
+- **Released v0.8.5** adding full support for resource configuration in `devcontainer.json`.
+- **Configuration**: Devcontainers can now specify `hostRequirements` (cpus, memory) which take precedence over global defaults.
+- **Precedence**: `runArgs` > `hostRequirements` > `Global Defaults`.

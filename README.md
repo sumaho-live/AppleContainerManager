@@ -1,15 +1,27 @@
 # Apple Container Manager for VS Code
 
-A VS Code extension for macOS that provides visual management for Apple’s native container environment (`container` CLI). It enables viewing images and containers, starting and stopping services, viewing logs, and checking for container CLI updates — all without Docker Desktop.
+**Use Apple Container as a Dev Container in VS Code.**
+
+This extension brings the authentic **DevContainer experience** to macOS's native `container` environment. It handles all the complexity—SSH key injection, config management, and lifecycle handling—so you can just open your project and code, exactly like you do with Docker.
+
+> [!TIP]
+> If you experience container hanging or repeated SSH interruptions, please try increasing the container's memory and CPU resources first.
 
 > [!WARNING]
 > Apple Container is currently in active development. You may experience SSH connection interruptions or unresponsive containers, which in severe cases could lead to **data loss**. This is not an issue with the extension itself. We are continuously working on solutions. If you have any workaround or suggestions, please [submit an issue](https://github.com/sumaho-live/AppleContainerManager/issues).
 
 ---
 
-## Features
-- Activity Bar view: “Apple Containers” with System, Images, and Containers trees
-- **Status Bar**: "Reopen in Container" button for quick access to devcontainer workflows
+## Key Feature: Dev Containers
+Transform any folder into a native Apple Container environment with a simple `.appcontainer/devcontainer.json`.
+- **Seamless**: "Reopen in Container" just works.
+- **Configurable**: Define `image`, `forwardPorts`, `cpus`, `memory`, `postCreateCommand`, and more.
+- **Fast**: Uses native macOS virtualization and SSH multiplexing for near-native performance.
+- **Zero-Setup**: Automatically generates SSH keys and manages connection configs.
+
+## Other Features
+- Activity Bar view: system, images, and containers management
+- **Status Bar**: Quick access to "Reopen in Container"
 - Images view surfaces repository and tag details for quick version checks, including removal for unused images
 - Containers view now supports inline start / stop / remove controls with rich hover summaries (image, CPU / memory, ports)
 - Opt-in log streaming per container with hover action, configurable timestamps, severity filters, and inline keyword highlighting in the Output channel
@@ -18,9 +30,7 @@ A VS Code extension for macOS that provides visual management for Apple’s nati
 - Real-time views that clear stale data and prompt to start the system service when it is offline
 - **Auto-Update**: Detects new CLI versions, offering an interactive "Stop -> Uninstall -> Install" flow with "Skip this version" capability.
 - Optional workspace-level auto-start of the system service
-- Optional workspace-level auto-start of the system service
 - **Auto-stop**: Configurable timeout to automatically stop containers when SSH sessions disconnect, saving resources.
-- Devcontainer workflows: seamless "Reopen in Container" experience using `.appcontainer/devcontainer.json`. Automatically handles SSH key injection, config management, and connection.
 
 ## System Requirements
 - macOS 26+ (Apple Silicon)
@@ -57,7 +67,11 @@ Example configuration:
   "workspaceFolder": "/root/workspace",
   "forwardPorts": [8080, "2222:22"],
   "postCreateCommand": "apt-get update && apt-get install -y openssh-server && mkdir -p /run/sshd",
-  "postStartCommand": "/usr/sbin/sshd"
+  "postStartCommand": "/usr/sbin/sshd",
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8GB"
+  }
 }
 ```
 
@@ -96,7 +110,9 @@ Add settings in your user or workspace settings:
   "appleContainer.logs.highlightKeywords": true,
   "appleContainer.logs.minimumLevel": "info",
   "appleContainer.autoStop.enabled": false,
-  "appleContainer.autoStop.timeout": 5
+  "appleContainer.autoStop.timeout": 5,
+  "appleContainer.resources.defaultCpus": 4,
+  "appleContainer.resources.defaultMemory": "8GB"
 }
 ```
 

@@ -1,0 +1,16 @@
+{
+    "name": "NodeJS22Test",
+    "image": "docker.io/library/node:22",
+    "remoteUser": "root",
+    "hostRequirements": {
+        "cpus": 2,
+        "memory": "4gb"
+    },
+    "workspaceFolder": "/root/workspace",
+    "forwardPorts": [
+        8080,
+        "2222:22"
+    ],
+    "postCreateCommand": "apt-get update && apt-get install -y openssh-server && mkdir -p /run/sshd",
+    "postStartCommand": "/usr/sbin/sshd"
+}

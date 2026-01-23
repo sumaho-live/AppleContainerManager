@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.8.5] - 2026-01-23
+### Added
+- **Configuration**: Added support for standard `hostRequirements` object in `devcontainer.json` to define container `cpus` and `memory`.
+- **Configuration**: Implemented resource precedence logic: `runArgs` > `hostRequirements` > `Global Defaults`.
+
+### Security
+- **Stability**: Improvements to SSH stability on reconnection (kex_exchange_identification).
+
+## [0.8.4] - 2026-01-23
+### Changed
+- **Stability**: Disabled **Auto-Stop** by default to prevent accidental container termination. Users must explicitly enable it in settings.
+- **Stability**: Added a 2-minute startup grace period to the Auto-Stop monitor to prevent premature shutdowns during initialization.
+
+### Added
+- **Configuration**: Added `appleContainer.resources.defaultCpus` (default: 4) and `appleContainer.resources.defaultMemory` (default: 8GB) settings. These defaults are applied when a `devcontainer.json` does not specify resource limits.
+
+## [0.8.3] - 2026-01-23
+### Changed
+- **Stability**: Disabled SSH `ControlMaster` (multiplexing) by default. This resolves `kex_exchange_identification` errors and connection drops caused by unstable forwarding pipes.
+
+## [0.8.2] - 2026-01-23
+### Fixed
+- **Stability**: Capped container log history to 5000 lines to prevent memory leaks and Extension Host crashes (SIGKILL) during long running sessions.
+
 ## [0.8.1] - 2026-01-23
 ### Changed
 - **Auto-Update**: Enhanced interactive update flow:
@@ -146,8 +170,11 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - Initial alpha validation for the Apple `container` CLI integration and VS Code extension scaffolding.
 
-[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.8.1...HEAD
-[0.8.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.1
+[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.8.5...HEAD
+[0.8.5]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.5
+[0.8.4]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.4
+[0.8.3]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.3
+[0.8.2]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.2
 [0.8.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.0
 [0.7.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.7.1
 [0.7.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.7.0
