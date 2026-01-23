@@ -165,3 +165,26 @@
 ### Summary
 - **Stability**: Added a timeout to the SSH key injection process to prevent indefinite hanging when containers are unresponsive.
 - **Documentation**: Visible warning in README about experimental status and known issues (SSH drops, data loss).
+
+## 2026-01-15 — v0.8.0 Release: Efficiency & Automation
+
+### Summary
+- **Released v0.8.0** introducing the **Auto-stop** feature.
+- **Efficiency**: Containers can now detect when the SSH connection is severed (e.g., VS Code window closed) and automatically shut down after a configurable timeout (default 5 minutes).
+- **Implementation**: Deploys a lightweight background script (`/tmp/acm-auto-stop.sh`) inside the container that monitors active connections on port 22 using `netstat` or `ss`.
+
+### Outstanding Follow-ups
+- Monitor reliability of the netstat/ss detection across different Linux distros (Alpine vs Debian).
+
+## 2026-01-23 — v0.8.1 Release: Interactive Auto-Update
+
+### Summary
+- **Released v0.8.1** with a refined auto-update experience.
+- **Experience**: The update flow is now interactive, alerting the user to new versions with options to "Install", "Skip", or "Ignore".
+- **Reliability**: Enforced a strict "Stop -> Uninstall -> Install" sequence to prevent data corruption or conflict during upgrades.
+- **Fixes**: Resolved a critical quoting issue in the uninstall script path and cleaned up lint errors in the monitor scripts.
+
+### Technical Details
+- `UpdateManager` now persists skipped versions in `globalState` to respect user preferences.
+- Uses `osascript` to handle privilege escalation for the uninstallation step.
+

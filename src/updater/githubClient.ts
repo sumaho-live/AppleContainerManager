@@ -83,3 +83,61 @@ export const fetchLatestRelease = async (): Promise<GithubRelease> => {
   });
 };
 
+
+export const downloadReleaseAsset = async (url: string, destinationPath: string): Promise<void> => {
+  log(`Downloading asset from ${url} to ${destinationPath}`);
+  const fs = await import('fs');
+
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(destinationPath);
+
+    const request = https.get(url, {
+      headers: {
+        'User-Agent': 'AppleContainerManagerVSCode',
+        Accept: 'application/octet-stream'
+      }
+    }, response => {
+      if (response.statusCode && response.statusCode >= 400) {
+        if (response.statusCode === 302 && response.headers.location) {
+          // Handle redirect
+          file.close();
+          downloadReleaseAsset(response.headers.location, destinationPath)
+            .then(resolve)
+            .catch(reject);
+          return;
+        }
+        const message = `GitHub asset download failed with status ${response.statusCode}`;
+        const error = new AppleContainerError(message, ErrorCode.NetworkError);
+        logError(message, error);
+        reject(error);
+        return;
+      }
+
+      // If it's a redirect (302)
+      if (response.statusCode === 302 && response.headers.location) {
+        file.close();
+        downloadReleaseAsset(response.headers.location, destinationPath)
+          .then(resolve)
+          .catch(reject);
+        return;
+      }
+
+      response.pipe(file);
+
+      file.on('finish', () => {
+        file.close();
+        log(`Download completed: ${destinationPath}`);
+        resolve();
+      });
+    });
+
+    request.on('error', error => {
+      try {
+        fs.unlinkSync(destinationPath);
+      } catch { /* ignore */ }
+      const wrapped = new AppleContainerError('GitHub asset download request failed', ErrorCode.NetworkError, error);
+      logError(wrapped.message, wrapped);
+      reject(wrapped);
+    });
+  });
+};

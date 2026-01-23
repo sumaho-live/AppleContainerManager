@@ -16,8 +16,10 @@ A VS Code extension for macOS that provides visual management for Apple’s nati
 - Dedicated System view with start / stop controls and update awareness
 - One-click “+” toolbar button launches a two-step container creation wizard (image & resources, then ports / volumes / extra args)
 - Real-time views that clear stale data and prompt to start the system service when it is offline
-- Detects container CLI version, checks GitHub for the latest release, and surfaces inline upgrade actions
+- **Auto-Update**: Detects new CLI versions, offering an interactive "Stop -> Uninstall -> Install" flow with "Skip this version" capability.
 - Optional workspace-level auto-start of the system service
+- Optional workspace-level auto-start of the system service
+- **Auto-stop**: Configurable timeout to automatically stop containers when SSH sessions disconnect, saving resources.
 - Devcontainer workflows: seamless "Reopen in Container" experience using `.appcontainer/devcontainer.json`. Automatically handles SSH key injection, config management, and connection.
 
 ## System Requirements
@@ -84,11 +86,17 @@ Add settings in your user or workspace settings:
 {
   "appleContainer.update.mode": "notify",
   "appleContainer.update.checkIntervalHours": 24,
+  "appleContainer.update.autoUpdate": false,
+  "appleContainer.update.keepData": true,
   "appleContainer.system.autoStartOnWorkspaceOpen": false,
   "appleContainer.pollIntervalMs": 5000,
   "appleContainer.logs.showTimestamps": true,
   "appleContainer.logs.highlightKeywords": true,
-  "appleContainer.logs.minimumLevel": "info"
+  "appleContainer.logs.showTimestamps": true,
+  "appleContainer.logs.highlightKeywords": true,
+  "appleContainer.logs.minimumLevel": "info",
+  "appleContainer.autoStop.enabled": false,
+  "appleContainer.autoStop.timeout": 5
 }
 ```
 

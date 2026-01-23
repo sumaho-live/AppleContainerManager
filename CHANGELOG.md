@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.8.1] - 2026-01-23
+### Changed
+- **Auto-Update**: Enhanced interactive update flow:
+    - Added "Skip this version" option to suppress notifications for specific releases.
+    - Added pre-download confirmation prompts.
+    - Implemented a stricter "Stop -> Uninstall -> Install" flow for reliability.
+    - Wired the "Check for CLI Updates" command to the new interactive manager.
+
+### Fixed
+- **Updater**: Fixed a quoting syntax error in the uninstall script path that caused updates to fail.
+- **Linting**: Resolved lint warnings in `autoStopMonitor.ts` and `githubClient.ts`.
+
+## [0.8.0] - 2026-01-15
+### Added
+- **Feature**: Auto-stop container support. Containers can now be configured to automatically stop after a period of SSH inactivity (default 5 minutes), helping to conserve system resources.
+- **Configuration**: Added `appleContainer.autoStop.enabled` and `appleContainer.autoStop.timeout` settings.
+
 ## [0.7.1] - 2026-01-15
 ### Changed
 - **Stability**: Added a 15-second timeout to the `exec` command during SSH key injection to prevent hanging.
@@ -129,7 +146,9 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - Initial alpha validation for the Apple `container` CLI integration and VS Code extension scaffolding.
 
-[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.7.1...HEAD
+[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.8.1...HEAD
+[0.8.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.1
+[0.8.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.0
 [0.7.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.7.1
 [0.7.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.7.0
 [0.6.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.6.1

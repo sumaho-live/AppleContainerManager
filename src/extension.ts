@@ -25,7 +25,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const containersProvider = new ContainersTreeProvider(cli, logManager);
   const imagesProvider = new ImagesTreeProvider(cli);
   const devcontainerManager = new DevcontainerManager(cli);
-  const updateManager = new UpdateManager(cli);
+  const updateManager = new UpdateManager(cli, context);
 
   const reopenStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   reopenStatusBarItem.command = 'appleContainer.devcontainer.reopen';
@@ -69,7 +69,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await refreshSystemStatus(cli, containersProvider, imagesProvider, { refreshResources: true, requestedRunning: true });
   }
 
-  registerCommands(context, cli, systemProvider, containersProvider, imagesProvider, logManager, devcontainerManager);
+  registerCommands(context, cli, systemProvider, containersProvider, imagesProvider, logManager, devcontainerManager, updateManager);
   registerErrorHandler(context);
 }
 
@@ -102,7 +102,8 @@ function registerCommands(
   containersProvider: ContainersTreeProvider,
   imagesProvider: ImagesTreeProvider,
   logManager: ContainerLogManager,
-  devcontainerManager: DevcontainerManager
+  devcontainerManager: DevcontainerManager,
+  updateManager: UpdateManager
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('appleContainer.system.start', async () => {
@@ -368,29 +369,7 @@ function registerCommands(
     }),
     vscode.commands.registerCommand('appleContainer.update.check', async () => {
       await withCommandHandling('Checking for CLI updates', async () => {
-        const [currentVersion, latestRelease] = await Promise.all([
-          cli.version().catch(() => 'unknown'),
-          fetchLatestRelease()
-        ]);
-
-        if (currentVersion === 'unknown') {
-          void vscode.window.showInformationMessage(`Latest container CLI release: ${latestRelease.tagName}. Install manually from ${latestRelease.htmlUrl}.`);
-          return;
-        }
-
-        if (latestRelease.tagName === currentVersion) {
-          void vscode.window.showInformationMessage(`You are on the latest container CLI version (${currentVersion}).`);
-        } else {
-          const message = `New container CLI version available: ${latestRelease.tagName} (current ${currentVersion}).`;
-          const open = 'View Release';
-          void vscode.window
-            .showInformationMessage(message, open)
-            .then(selection => {
-              if (selection === open) {
-                void vscode.env.openExternal(vscode.Uri.parse(latestRelease.htmlUrl));
-              }
-            });
-        }
+        await updateManager.manualCheck();
       });
     }),
     vscode.commands.registerCommand('appleContainer.devcontainer.build', async () => {

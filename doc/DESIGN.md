@@ -51,7 +51,9 @@ Provide visual management of macOS native containers within VS Code. Users can s
 - Image actions: Context menu provides Pull, Remove, Run
 - Devcontainers: Support for `.devcontainer.json` (via `.appcontainer/devcontainer.json`) to define reproducible environments
 - Updates: Toolbar or Command Palette calls GitHub API and notifies if newer
+- Updates: Toolbar or Command Palette calls GitHub API and notifies if newer
 - Auto-start: Workspace setting triggers idempotent `system start` when opening
+- Auto-stop: Background monitor shuts down container after configured SSH inactivity timeout
 
 ## 6. Errors and Status Feedback
 - CLI not installed: Show guidance with installation steps

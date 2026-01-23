@@ -6,6 +6,7 @@ import { ContainerCli, ContainerCreateOptions, ContainerExecOptions } from '../c
 import { AppleContainerError, ErrorCode, toAppleContainerError } from '../core/errors';
 import { SshManager } from './sshManager';
 import { log, logError, logInfo, logWarn } from '../core/logger';
+import { AUTO_STOP_SCRIPT } from '../scripts/autoStopMonitor';
 
 type DevcontainerCommand = string | string[];
 
@@ -153,6 +154,9 @@ export class DevcontainerManager implements vscode.Disposable {
         const sshPort = this.detectForwardedPort(resolved.ports, 22) ?? '2222';
         await sshManager.updateConfig(containerName, sshPort, resolved.remoteUser);
 
+        // Ensure auto-stop monitor is running (if enabled)
+        await this.injectAutoStopScript(existing.id, resolved.remoteUser);
+
         await this.runPostCommands(existing.id, resolved, {
           runCreate: Boolean(resolved.postCreateCommand),
           runStart: Boolean(resolved.postStartCommand)
@@ -232,6 +236,9 @@ export class DevcontainerManager implements vscode.Disposable {
     const sshPort = this.detectForwardedPort(resolved.ports, 22) ?? '2222'; // Default fallback or error?
     await sshManager.updateConfig(containerName, sshPort, resolved.remoteUser);
 
+    // Inject and start auto-stop monitor
+    await this.injectAutoStopScript(created.id ?? containerName, resolved.remoteUser);
+
     await this.runPostCommands(created.id ?? containerName, resolved, {
       runCreate: Boolean(resolved.postCreateCommand),
       runStart: Boolean(resolved.postStartCommand)
@@ -263,6 +270,58 @@ export class DevcontainerManager implements vscode.Disposable {
       // This might fail if the user doesn't exist yet or permissions are strict, but we try our best.
     }
 
+  }
+
+  private async injectAutoStopScript(containerId: string, user?: string): Promise<void> {
+    const config = vscode.workspace.getConfiguration('appleContainer');
+    const enabled = config.get<boolean>('autoStop.enabled', false);
+    if (!enabled) {
+      return;
+    }
+
+    const timeout = config.get<number>('autoStop.timeout', 5);
+    logInfo(`Injecting auto-stop monitor (timeout: ${timeout}m) into ${containerId}`);
+
+    const execOptions: ContainerExecOptions = {
+      user,
+      tty: false,
+      interactive: false
+    };
+
+    // Use a heredoc to write the script, then execute it in background
+    // We use a safe path in /tmp
+    const scriptPath = '/tmp/acm-auto-stop.sh';
+
+    // We construct a single shell command to write and run
+    // Note: We escape double quotes in the script content just in case, though it's already a JS string.
+    // Actually, we should be careful with `execInContainer` as it takes an array of args usually.
+    // But here we want to pass a complex shell script.
+    // SshManager uses: `mkdir -p ... && echo ...`
+
+    // We'll use cat with EOF. 
+    // IMPORTANT: The AUTO_STOP_SCRIPT variable contains the script content.
+    // We need to ensure it doesn't break the shell command.
+
+    // Simplest way: write to a file via a separate exec if possible, or just one big command.
+    // Let's try one big command.
+
+    const cmd = [
+      '/bin/sh',
+      '-c',
+      `cat << 'EOF' > ${scriptPath}
+${AUTO_STOP_SCRIPT}
+EOF
+chmod +x ${scriptPath}
+nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
+`
+    ];
+
+    try {
+      await this.cli.execInContainer(containerId, cmd, execOptions);
+      logInfo(`Auto-stop monitor started in ${containerId}`);
+    } catch (e) {
+      logWarn(`Failed to start auto-stop monitor: ${e}`);
+    }
   }
 
   async rebuildDevcontainer(): Promise<void> {

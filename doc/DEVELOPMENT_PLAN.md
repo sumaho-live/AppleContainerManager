@@ -14,7 +14,9 @@
 - M3 (Completed): Container operations and Marketplace readiness
 - M4 (Completed): Creation Wizard and Log Streaming
 - M5 (Completed): Devcontainer workflow support
-- M6 (In Progress): Testing, optimization, and documentation for v0.5.0 release
+- M6 (Completed): Testing, optimization, and documentation for v0.5.0 release
+- M7 (Completed): Safety, Efficiency (Auto-stop), and UI Polish (v0.6.0 - v0.8.0)
+- M8 (Completed): Interactive Auto-Update and Reliability Fixes (v0.8.1)
 
 ## 2. Phase Details
 ### M0: Technical Validation and Foundation
@@ -59,6 +61,11 @@
 - Documentation updates (README, help, changelog)
 - Prepare and publish preview to Marketplace
 - Collect feedback and scope next release
+
+### M7: Automation and Efficiency
+- Auto-stop mechanism for idle containers
+- Safety confirmations for destructive actions
+- Enhanced logging and progress indicators
 
 ## 3. Risks and Mitigations
 - CLI output changes: Add version detection and capability probing

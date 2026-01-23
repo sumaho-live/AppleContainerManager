@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Manage Apple container CLI resources directly from VS Code.",
-  "version": "0.7.1",
+  "version": "0.8.1",
   "publisher": "Awei-Sumaho",
   "author": {
     "email": "awei@sumaho.live",
@@ -140,6 +140,16 @@
           "type": "number",
           "default": 3000,
           "description": "Cooldown time (ms) after executing CLI commands to ensure stability."
+        },
+        "appleContainer.autoStop.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically stop the container when no SSH session is active for a specified duration."
+        },
+        "appleContainer.autoStop.timeout": {
+          "type": "number",
+          "default": 5,
+          "description": "Timeout in minutes before stopping the container due to SSH inactivity."
         }
       }
     },
