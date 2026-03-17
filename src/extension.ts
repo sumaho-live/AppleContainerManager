@@ -401,6 +401,88 @@ function registerCommands(
       await withCommandHandling('Reopening folder in devcontainer', async () => {
         await devcontainerManager.reopenInContainer();
       });
+    }),
+    vscode.commands.registerCommand('appleContainer.system.dns.init', async () => {
+      await withCommandHandling('Initializing DNS', async () => {
+        const domain = await vscode.window.showInputBox({
+          title: 'Initialize Container DNS',
+          prompt: 'Enter the DNS domain for container name resolution',
+          value: 'container.acm',
+          placeHolder: 'e.g. container.acm'
+        });
+        if (!domain?.trim()) {
+          return;
+        }
+        const trimmedDomain = domain.trim();
+
+        await vscode.window.withProgress({
+          location: vscode.ProgressLocation.Notification,
+          title: `Initializing DNS domain: ${trimmedDomain}`,
+          cancellable: false
+        }, async (progress) => {
+          progress.report({ message: 'Creating DNS resolver (requires admin)...' });
+          await cli.dnsCreate(trimmedDomain);
+          log(`DNS domain created: ${trimmedDomain}`);
+
+          progress.report({ message: 'Setting default DNS domain...' });
+          await cli.dnsSetDomain(trimmedDomain);
+          log(`DNS default domain set to: ${trimmedDomain}`);
+        });
+
+        await refreshSystemStatus(cli, containersProvider, imagesProvider, { refreshResources: true });
+        void vscode.window.showInformationMessage(`DNS initialized with domain: ${trimmedDomain}. Containers can now be reached via <name>.${trimmedDomain}`);
+      });
+    }),
+    vscode.commands.registerCommand('appleContainer.container.rebuild', async (item?: ContainerTreeItem) => {
+      if (!item?.container || item.container.id === 'empty-containers') {
+        return;
+      }
+      const identifier = item.container.name ?? item.container.id;
+      const containerImage = item.container.image;
+      const containerName = item.container.name;
+
+      const confirmation = await vscode.window.showWarningMessage(
+        `Rebuild container "${identifier}"? This will stop and recreate it with DNS hostname.`,
+        { modal: true },
+        'Rebuild'
+      );
+      if (confirmation !== 'Rebuild') {
+        return;
+      }
+
+      await withCommandHandling(`Rebuilding container ${identifier}`, async () => {
+        await vscode.window.withProgress({
+          location: vscode.ProgressLocation.Notification,
+          title: `Rebuilding container ${identifier}`,
+          cancellable: false
+        }, async (progress) => {
+          // Stop if running
+          if (isContainerRunningStatus(item.container.status)) {
+            progress.report({ message: 'Stopping container...' });
+            try {
+              await cli.stopContainer(item.container.id);
+            } catch (error) {
+              logWarn(`Stop failed, attempting force kill: ${error}`);
+              await cli.killContainer(item.container.id);
+            }
+          }
+
+          // Remove old container
+          progress.report({ message: 'Removing old container...' });
+          await cli.removeContainer(item.container.id);
+
+          // Recreate with hostname for DNS
+          progress.report({ message: 'Creating new container with DNS hostname...' });
+          await cli.createContainer({
+            image: containerImage,
+            name: containerName,
+            hostname: containerName ?? identifier
+          });
+        });
+
+        await containersProvider.refresh();
+        void vscode.window.showInformationMessage(`Container ${identifier} rebuilt with DNS hostname.`);
+      });
     })
   );
 }

@@ -157,6 +157,18 @@ export class UpdateManager implements vscode.Disposable {
                 await downloadReleaseAsset(asset.browserDownloadUrl, installerPath);
                 log(`Installer downloaded to ${installerPath}`);
 
+                // Verify the downloaded file exists and is non-empty
+                const fsVerify = await import('fs');
+                if (!fsVerify.existsSync(installerPath)) {
+                    throw new Error(`Downloaded installer not found at ${installerPath}`);
+                }
+                const stats = fsVerify.statSync(installerPath);
+                if (stats.size === 0) {
+                    try { fsVerify.unlinkSync(installerPath); } catch { /* ignore */ }
+                    throw new Error('Downloaded installer file is empty (0 bytes)');
+                }
+                log(`Installer verified: ${stats.size} bytes`);
+
                 // 2. Prompt user before stopping system
                 const confirmation = await vscode.window.showWarningMessage(
                     'The container system must be stopped to proceed with the update. Continue?',

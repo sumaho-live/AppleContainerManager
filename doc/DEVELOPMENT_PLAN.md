@@ -17,6 +17,7 @@
 - M6 (Completed): Testing, optimization, and documentation for v0.5.0 release
 - M7 (Completed): Safety, Efficiency (Auto-stop), and UI Polish (v0.6.0 - v0.8.0)
 - M8 (Completed): Interactive Auto-Update and Reliability Fixes (v0.8.1)
+- M9 (Completed): DNS Integration, Container Rebuild, and Auto-Update Fix (v0.9.0)
 
 ## 2. Phase Details
 ### M0: Technical Validation and Foundation

@@ -2,7 +2,7 @@
 
 - Project: Apple Container Manager for VS Code
 - Product Owner: TBD
-- Version: v0.4
+- Version: v0.9
 
 ---
 
@@ -54,6 +54,8 @@ Provide visual management of macOS native containers within VS Code. Users can s
 - Updates: Toolbar or Command Palette calls GitHub API and notifies if newer
 - Auto-start: Workspace setting triggers idempotent `system start` when opening
 - Auto-stop: Background monitor shuts down container after configured SSH inactivity timeout
+- DNS Init: System view button configures local DNS domain for container name resolution via `container system dns create`
+- Container Rebuild: Context menu action to rebuild containers with DNS hostname support
 
 ## 6. Errors and Status Feedback
 - CLI not installed: Show guidance with installation steps
@@ -76,3 +78,4 @@ Provide visual management of macOS native containers within VS Code. Users can s
 - Container network visualization
 - Image build, tag, and push
 - Automatic health checks and restarts
+- Multi-container orchestration with DNS service discovery

@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Use Apple Container as a Dev Container in VS Code.",
-  "version": "0.8.5",
+  "version": "0.9.0",
   "publisher": "Awei-Sumaho",
   "author": {
     "email": "awei@sumaho.live",
@@ -74,7 +74,9 @@
     "workspaceContains:.appcontainer/devcontainer.json",
     "workspaceContains:.appcontainer.json",
     "workspaceContains:.vscode/settings.json",
-    "onCommand:appleContainer.devcontainer.reopen"
+    "onCommand:appleContainer.devcontainer.reopen",
+    "onCommand:appleContainer.system.dns.init",
+    "onCommand:appleContainer.container.rebuild"
   ],
   "contributes": {
     "configuration": {
@@ -202,6 +204,11 @@
           "group": "navigation@2"
         },
         {
+          "command": "appleContainer.system.dns.init",
+          "when": "view == appleContainerSystem && appleContainer.system.running",
+          "group": "navigation@3"
+        },
+        {
           "command": "appleContainer.images.refresh",
           "when": "view == appleContainerImages && appleContainer.system.running",
           "group": "navigation@1"
@@ -259,6 +266,10 @@
         {
           "command": "appleContainer.container.remove",
           "when": "view == appleContainerContainers && viewItem =~ /container-stopped-deletable(-logging)?$/"
+        },
+        {
+          "command": "appleContainer.container.rebuild",
+          "when": "view == appleContainerContainers && viewItem =~ /container-(running|stopped)(-deletable)?(-logging)?$/"
         },
         {
           "command": "appleContainer.image.remove",
@@ -365,6 +376,16 @@
           "command": "appleContainer.devcontainer.reopen",
           "when": "true",
           "group": "appleContainer@18"
+        },
+        {
+          "command": "appleContainer.system.dns.init",
+          "when": "true",
+          "group": "appleContainer@19"
+        },
+        {
+          "command": "appleContainer.container.rebuild",
+          "when": "true",
+          "group": "appleContainer@20"
         }
       ]
     },
@@ -511,6 +532,18 @@
         "title": "Reopen Folder in Container",
         "category": "Apple Container",
         "icon": "$(remote-explorer)"
+      },
+      {
+        "command": "appleContainer.system.dns.init",
+        "title": "Initialize DNS",
+        "category": "Apple Container",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "appleContainer.container.rebuild",
+        "title": "Rebuild Container",
+        "category": "Apple Container",
+        "icon": "$(refresh)"
       }
     ]
   },

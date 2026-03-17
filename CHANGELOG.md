@@ -170,7 +170,8 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - Initial alpha validation for the Apple `container` CLI integration and VS Code extension scaffolding.
 
-[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.8.5...HEAD
+[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.0...HEAD
+[0.9.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.9.0
 [0.8.5]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.5
 [0.8.4]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.4
 [0.8.3]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.3

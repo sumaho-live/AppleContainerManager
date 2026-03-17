@@ -1,4 +1,5 @@
 import { ChildProcessWithoutNullStreams, execFile, spawn } from 'node:child_process';
+import * as cp from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { AppleContainerError, ErrorCode, toAppleContainerError } from '../core/errors';
@@ -81,6 +82,7 @@ export interface VolumeMapping {
 export interface ContainerCreateOptions {
   image: string;
   name?: string;
+  hostname?: string;
   arch?: string;
   cpus?: number;
   memory?: string;
@@ -129,6 +131,30 @@ export class ContainerCli {
     const timeout = action === 'stop' ? 60000 : undefined;
     const { stdout } = await this.exec(['system', action], { timeout });
     return stdout;
+  }
+
+  async dnsCreate(domain: string): Promise<void> {
+    const cmd = `"${this.binary}" system dns create ${domain}`;
+    const script = `do shell script "${cmd}" with administrator privileges`;
+    log(`Running DNS create with admin privileges: ${cmd}`);
+    await new Promise<void>((resolve, reject) => {
+      cp.execFile('osascript', ['-e', script], (error, _stdout, stderr) => {
+        if (error) {
+          reject(new AppleContainerError(`DNS create failed: ${stderr || error.message}`, ErrorCode.CommandFailed, error));
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  async dnsSetDomain(domain: string): Promise<void> {
+    await this.exec(['system', 'property', 'set', 'dns.domain', domain]);
+  }
+
+  async inspectContainer(containerId: string): Promise<ContainerSummary | undefined> {
+    const containers = await this.listContainers();
+    return containers.find(c => c.id === containerId || c.name === containerId);
   }
 
   async getSystemStatus(): Promise<boolean | undefined> {
@@ -477,6 +503,10 @@ export class ContainerCli {
 
     if (options.arch?.trim()) {
       args.push('--arch', options.arch.trim());
+    }
+
+    if (options.hostname?.trim()) {
+      args.push('--hostname', options.hostname.trim());
     }
 
     if (typeof options.cpus === 'number' && options.cpus > 0) {
