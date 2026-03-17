@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.9.1] - 2026-03-17
+### Added
+- **Feature**: Initialize DNS button in the System view. Runs `sudo container system dns create <domain>` and `container system property set dns.domain <domain>` to enable container name resolution (default domain: `container.acm`).
+- **Feature**: "Rebuild Container" context menu action for containers. Stops, removes, and recreates the container with the same image and name, registering it in DNS.
+
+### Fixed
+- **Auto-Update**: Fixed a critical bug where the installer download would silently fail. The HTTP redirect handler (302) was placed inside the `>= 400` status check block where it could never execute. Now properly handles 301/302/307/308 redirects.
+- **Auto-Update**: Added download verification—checks that the installer file exists and has a non-zero size before proceeding with installation.
+
 ## [0.8.5] - 2026-01-23
 ### Added
 - **Configuration**: Added support for standard `hostRequirements` object in `devcontainer.json` to define container `cpus` and `memory`.
@@ -170,8 +179,8 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - Initial alpha validation for the Apple `container` CLI integration and VS Code extension scaffolding.
 
-[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.0...HEAD
-[0.9.0]: https://github.com/sumaho-live/AppleContainerManager/tree/0.9.0
+[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.1...HEAD
+[0.9.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.9.1
 [0.8.5]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.5
 [0.8.4]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.4
 [0.8.3]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.3

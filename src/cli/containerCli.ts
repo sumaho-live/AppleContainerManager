@@ -82,7 +82,6 @@ export interface VolumeMapping {
 export interface ContainerCreateOptions {
   image: string;
   name?: string;
-  hostname?: string;
   arch?: string;
   cpus?: number;
   memory?: string;
@@ -503,10 +502,6 @@ export class ContainerCli {
 
     if (options.arch?.trim()) {
       args.push('--arch', options.arch.trim());
-    }
-
-    if (options.hostname?.trim()) {
-      args.push('--hostname', options.hostname.trim());
     }
 
     if (typeof options.cpus === 'number' && options.cpus > 0) {

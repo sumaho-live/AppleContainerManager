@@ -442,7 +442,7 @@ function registerCommands(
       const containerName = item.container.name;
 
       const confirmation = await vscode.window.showWarningMessage(
-        `Rebuild container "${identifier}"? This will stop and recreate it with DNS hostname.`,
+        `Rebuild container "${identifier}"? This will stop and recreate it with the same image.`,
         { modal: true },
         'Rebuild'
       );
@@ -471,17 +471,16 @@ function registerCommands(
           progress.report({ message: 'Removing old container...' });
           await cli.removeContainer(item.container.id);
 
-          // Recreate with hostname for DNS
-          progress.report({ message: 'Creating new container with DNS hostname...' });
+          // Recreate container
+          progress.report({ message: 'Creating new container...' });
           await cli.createContainer({
             image: containerImage,
-            name: containerName,
-            hostname: containerName ?? identifier
+            name: containerName
           });
         });
 
         await containersProvider.refresh();
-        void vscode.window.showInformationMessage(`Container ${identifier} rebuilt with DNS hostname.`);
+        void vscode.window.showInformationMessage(`Container ${identifier} rebuilt successfully.`);
       });
     })
   );

@@ -220,10 +220,10 @@
 ### Summary
 - **Released v0.9.0** with DNS integration, container rebuild, and a critical auto-update fix.
 - **DNS Integration**: Added "Initialize DNS" button to the System view. Configures a local DNS domain (default `container.acm`) via `sudo container system dns create` and `container system property set dns.domain`, enabling containers to be reached by name (e.g., `my-app.container.acm`).
-- **Rebuild Container**: Added right-click "Rebuild Container" action in the Containers view. Stops, removes, and recreates the container with a `--hostname` flag for DNS resolution.
+- **Rebuild Container**: Added right-click "Rebuild Container" action in the Containers view. Stops, removes, and recreates the container with the same image and name, registering it in DNS.
 - **Auto-Update Fix**: Fixed a critical bug where installer downloads silently failed because the HTTP 302 redirect handler was inside the `>= 400` status check where it could never execute. Now properly handles 301/302/307/308 redirects. Added post-download verification (file existence + non-zero size).
 
 ### Technical Details
-- `containerCli.ts`: Added `dnsCreate()` (sudo via osascript), `dnsSetDomain()`, `inspectContainer()`, and `hostname` option for `createContainer()`.
+- `containerCli.ts`: Added `dnsCreate()` (sudo via osascript), `dnsSetDomain()`, and `inspectContainer()`.
 - `githubClient.ts`: Rewrote `downloadReleaseAsset()` with correct redirect ordering and max-redirect limit (10).
 - `updateManager.ts`: Added installer file verification after download.

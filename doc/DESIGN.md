@@ -55,7 +55,7 @@ Provide visual management of macOS native containers within VS Code. Users can s
 - Auto-start: Workspace setting triggers idempotent `system start` when opening
 - Auto-stop: Background monitor shuts down container after configured SSH inactivity timeout
 - DNS Init: System view button configures local DNS domain for container name resolution via `container system dns create`
-- Container Rebuild: Context menu action to rebuild containers with DNS hostname support
+- Container Rebuild: Context menu action to rebuild containers for DNS registration
 
 ## 6. Errors and Status Feedback
 - CLI not installed: Show guidance with installation steps

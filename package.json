@@ -2,7 +2,7 @@
   "name": "apple-container-manager",
   "displayName": "Apple Container Manager",
   "description": "Use Apple Container as a Dev Container in VS Code.",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "publisher": "Awei-Sumaho",
   "author": {
     "email": "awei@sumaho.live",

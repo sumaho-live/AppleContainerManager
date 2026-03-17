@@ -32,7 +32,7 @@ Transform any folder into a native Apple Container environment with a simple `.a
 - Optional workspace-level auto-start of the system service
 - **Auto-stop**: Configurable timeout to automatically stop containers when SSH sessions disconnect, saving resources.
 - **DNS Integration**: Initialize a local DNS domain (default `container.acm`) so containers can be reached by name (e.g., `my-app.container.acm`).
-- **Rebuild Container**: Right-click to stop, remove, and recreate a container with DNS hostname support.
+- **Rebuild Container**: Right-click to stop, remove, and recreate a container, registering it in DNS.
 
 ## System Requirements
 - macOS 26+ (Apple Silicon)
@@ -140,7 +140,7 @@ Add settings in your user or workspace settings:
 - `appleContainer.devcontainer.runPostCommands`: Re-run `postCreateCommand` and `postStartCommand` inside the container
 - `appleContainer.devcontainer.open`: Show Remote-SSH connection instructions inferred from `forwardPorts`
 - `appleContainer.system.dns.init`: Initialize a local DNS domain for container name resolution
-- `appleContainer.container.rebuild`: Rebuild a container with DNS hostname support
+- `appleContainer.container.rebuild`: Rebuild a container (stop, remove, recreate)
 
 ## Roadmap (High Level)
 - M0: CLI interface validation and system control — in progress
