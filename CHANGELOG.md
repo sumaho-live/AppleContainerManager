@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.9.2] - 2026-04-09
+### Added
+- **Feature**: Adapted to the latest container upgrade command `/usr/local/bin/update-container.sh`. This script is now the preferred method for upgrading the container CLI when available, supporting interactive password prompts.
+
 ## [0.9.1] - 2026-03-17
 ### Added
 - **Feature**: Initialize DNS button in the System view. Runs `sudo container system dns create <domain>` and `container system property set dns.domain <domain>` to enable container name resolution (default domain: `container.acm`).

@@ -1,10 +1,8 @@
 import * as vscode from 'vscode';
-import * as os from 'os';
-import * as path from 'path';
 import * as cp from 'child_process';
 import { ContainerCli } from '../cli/containerCli';
 import { log, logError, logWarn } from '../core/logger';
-import { fetchLatestRelease, GithubRelease, downloadReleaseAsset } from './githubClient';
+import { fetchLatestRelease, GithubRelease } from './githubClient';
 
 export class UpdateManager implements vscode.Disposable {
     private readonly checkIntervalMs = 24 * 60 * 60 * 1000; // 24 hours default, but we'll read config
@@ -135,107 +133,54 @@ export class UpdateManager implements vscode.Disposable {
         }
 
         // Proceed with 'Yes'
-        // Find the installer asset (pkg)
-        const asset = release.assets.find(a => a.name === 'container-installer-signed.pkg');
-        if (!asset) {
-            logError('Auto-update failed: Signed installer PKG not found in release assets.');
-            vscode.window.showErrorMessage(`Update ${release.tagName} available but auto-update failed: Installer package not found.`);
-            return;
-        }
+        const fs = await import('fs');
+        const updateScript = '/usr/local/bin/update-container.sh';
 
-        const tempDir = os.tmpdir();
-        const installerPath = path.join(tempDir, `container-installer-${release.tagName}.pkg`);
+        if (fs.existsSync(updateScript)) {
+            log(`Found update script: ${updateScript}. Using it for upgrade.`);
+            try {
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: `Updating Apple Container to ${release.tagName}`,
+                    cancellable: false
+                }, async (progress) => {
+                    progress.report({ message: 'Initializing system update...' });
 
-        try {
-            await vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
-                title: `Updating Apple Container to ${release.tagName}`,
-                cancellable: false
-            }, async (progress) => {
-                // 1. Download
-                progress.report({ message: 'Downloading installer...' });
-                await downloadReleaseAsset(asset.browserDownloadUrl, installerPath);
-                log(`Installer downloaded to ${installerPath}`);
+                    // 1. Stop System first to be safe (it might be required by the script, or just good practice)
+                    try {
+                        await this.cli.system('stop');
+                    } catch (error) {
+                        logWarn(`Failed to stop system before script update: ${error}`);
+                    }
 
-                // Verify the downloaded file exists and is non-empty
-                const fsVerify = await import('fs');
-                if (!fsVerify.existsSync(installerPath)) {
-                    throw new Error(`Downloaded installer not found at ${installerPath}`);
-                }
-                const stats = fsVerify.statSync(installerPath);
-                if (stats.size === 0) {
-                    try { fsVerify.unlinkSync(installerPath); } catch { /* ignore */ }
-                    throw new Error('Downloaded installer file is empty (0 bytes)');
-                }
-                log(`Installer verified: ${stats.size} bytes`);
-
-                // 2. Prompt user before stopping system
-                const confirmation = await vscode.window.showWarningMessage(
-                    'The container system must be stopped to proceed with the update. Continue?',
-                    { modal: true },
-                    'Continue'
-                );
-
-                if (confirmation !== 'Continue') {
-                    throw new Error('Update cancelled by user.');
-                }
-
-                // 3. Stop System
-                progress.report({ message: 'Stopping container system...' });
-                try {
-                    await this.cli.system('stop');
-                } catch (error) {
-                    logWarn(`Failed to stop system (might not be running): ${error}`);
-                }
-
-                // 3. Uninstall (if script exists)
-                const uninstallScript = '/usr/local/bin/uninstall-container.sh';
-                // Dynamic import fs to check file
-                const fs = await import('fs');
-                if (fs.existsSync(uninstallScript)) {
-                    progress.report({ message: 'Uninstalling old version...' });
-                    const uninstallFlag = keepData ? '-k' : '-d';
-                    // Escape double quotes for AppleScript: " -> \"
-                    const uninstallCmd = `\\"${uninstallScript}\\" ${uninstallFlag}`;
-
-                    // Use osascript to escalate privileges
-                    const script = `do shell script "${uninstallCmd}" with administrator privileges`;
+                    progress.report({ message: 'Running update script (requires password)...' });
+                    
+                    // Use osascript to escalate privileges for the update script
+                    // Note: we use double backslashes to escape the double quotes for the shell command inside the AppleScript string
+                    const script = `do shell script "\\"${updateScript}\\"" with administrator privileges`;
 
                     await new Promise<void>((resolve, reject) => {
                         cp.execFile('osascript', ['-e', script], (error, stdout, stderr) => {
                             if (error) {
-                                reject(new Error(`Uninstall failed: ${stderr || error.message}`));
+                                reject(new Error(`Update script failed: ${stderr || error.message}`));
                             } else {
+                                if (stdout) { log(`Update script stdout: ${stdout}`); }
+                                if (stderr) { logWarn(`Update script stderr: ${stderr}`); }
                                 resolve();
                             }
                         });
                     });
-                } else {
-                    log('Uninstall script not found, skipping specific uninstall step.');
-                }
-            });
-
-            // 4. Launch Installer
-            log('Launching installer...');
-            const installSelection = await vscode.window.showInformationMessage(
-                `Update ${release.tagName} ready. Proceed to install?`,
-                'Install Now'
-            );
-
-            if (installSelection === 'Install Now') {
-                // Launch the installer via 'open' command
-                cp.exec(`open "${installerPath}"`, (error) => {
-                    if (error) {
-                        logError('Failed to launch installer', error);
-                        vscode.window.showErrorMessage(`Failed to launch installer: ${error.message}`);
-                    } else {
-                        log('Installer launched successfully.');
-                    }
                 });
+                
+                void vscode.window.showInformationMessage(`Apple Container updated successfully to ${release.tagName}.`);
+                return; // Successful update, stop here
+            } catch (error) {
+                logError('Update script execution failed', error);
+                vscode.window.showErrorMessage(`Update script failed: ${error instanceof Error ? error.message : String(error)}`);
             }
-        } catch (error) {
-            logError('Auto-update failed', error);
-            vscode.window.showErrorMessage(`Failed to update: ${error instanceof Error ? error.message : String(error)}`);
+        } else {
+            logError(`Update script not found at ${updateScript}`);
+            vscode.window.showErrorMessage(`Update failed: ${updateScript} not found. Please ensure the latest container tool is installed.`);
         }
     }
 
