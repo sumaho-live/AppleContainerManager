@@ -1,8 +1,10 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-export type LogSeverity = 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'success' | 'unknown';
-export type LogStream = 'stdout' | 'stderr' | 'system';
-export type LogSource = 'system' | 'container';
+import { type LogSeverity, inferLogSeverity } from "./severity";
+
+export type { LogSeverity };
+export type LogStream = "stdout" | "stderr" | "system";
+export type LogSource = "system" | "container";
 
 export interface LogLineDescriptor {
   timestamp: Date;
@@ -25,22 +27,30 @@ export class LogFormatter implements vscode.Disposable {
   private readonly configurationListener: vscode.Disposable;
 
   constructor() {
-    this.configurationListener = vscode.workspace.onDidChangeConfiguration(event => {
-      if (event.affectsConfiguration('appleContainer.logs.showTimestamps')) {
-        this.showTimestamps = this.readShowTimestampsSetting();
-        this.timestampFormatter = this.createTimestampFormatter();
-      }
-    });
+    this.configurationListener = vscode.workspace.onDidChangeConfiguration(
+      (event) => {
+        if (event.affectsConfiguration("appleContainer.logs.showTimestamps")) {
+          this.showTimestamps = this.readShowTimestampsSetting();
+          this.timestampFormatter = this.createTimestampFormatter();
+        }
+      },
+    );
   }
 
   format(line: LogLineDescriptor): FormattedLogLine {
-    const severity = line.level ?? this.detectSeverity(line);
-    const timestampPlain = this.showTimestamps ? `[${this.timestampFormatter.format(line.timestamp)}]` : undefined;
+    const severity =
+      line.level ?? inferLogSeverity(line.message, line.stream === "stderr");
+    const timestampPlain = this.showTimestamps
+      ? `[${this.timestampFormatter.format(line.timestamp)}]`
+      : undefined;
     const tagPlain = `[${line.tag}]`;
     const levelPlain = severity ? `[${severity.toUpperCase()}]` : undefined;
-    const streamPlain = line.stream && line.stream !== 'system' ? `(${line.stream})` : undefined;
+    const streamPlain =
+      line.stream && line.stream !== "system" ? `(${line.stream})` : undefined;
 
-    const plainPrefix = [tagPlain, timestampPlain, levelPlain, streamPlain].filter(Boolean).join('');
+    const plainPrefix = [tagPlain, timestampPlain, levelPlain, streamPlain]
+      .filter(Boolean)
+      .join("");
     const coloredPrefix = plainPrefix;
 
     const plain = `${plainPrefix} ${line.message}`.trim();
@@ -49,14 +59,14 @@ export class LogFormatter implements vscode.Disposable {
     return { colored, plain, severity };
   }
 
-  formatSystem(message: string, level: LogSeverity = 'info'): FormattedLogLine {
+  formatSystem(message: string, level: LogSeverity = "info"): FormattedLogLine {
     return this.format({
       message,
-      source: 'system',
-      tag: 'ACM',
+      source: "system",
+      tag: "ACM",
       timestamp: new Date(),
-      stream: 'system',
-      level
+      stream: "system",
+      level,
     });
   }
 
@@ -64,50 +74,22 @@ export class LogFormatter implements vscode.Disposable {
     this.configurationListener.dispose();
   }
 
-  private detectSeverity(line: LogLineDescriptor): LogSeverity {
-    if (line.stream === 'stderr') {
-      return 'error';
-    }
-    if (line.stream === 'system') {
-      return this.inferSeverity(line.message);
-    }
-    return this.inferSeverity(line.message);
-  }
-
-  private inferSeverity(message: string): LogSeverity {
-    const upper = message.toUpperCase();
-    if (/\b(ERROR|FAILED|FAILURE|CRITICAL)\b/.test(upper)) {
-      return 'error';
-    }
-    if (/\b(WARN|WARNING)\b/.test(upper)) {
-      return 'warn';
-    }
-    if (/\b(SUCCESS|STARTED|RUNNING|READY|COMPLETED)\b/.test(upper)) {
-      return 'success';
-    }
-    if (/\b(INFO|INFORMATION)\b/.test(upper)) {
-      return 'info';
-    }
-    if (/\b(DEBUG|TRACE)\b/.test(upper)) {
-      return 'debug';
-    }
-    return 'unknown';
-  }
-
   private createTimestampFormatter(): Intl.DateTimeFormat {
     return new Intl.DateTimeFormat(undefined, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
     });
   }
 
   private readShowTimestampsSetting(): boolean {
-    return vscode.workspace.getConfiguration('appleContainer.logs').get<boolean>('showTimestamps', true);
+    return vscode.workspace
+      .getConfiguration("appleContainer.logs")
+      .get<boolean>("showTimestamps", true);
   }
 }
 

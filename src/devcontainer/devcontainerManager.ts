@@ -1,12 +1,20 @@
-import * as vscode from 'vscode';
-import * as path from 'node:path';
-import { promises as fs } from 'node:fs';
+import * as vscode from "vscode";
+import * as path from "node:path";
+import { promises as fs } from "node:fs";
 
-import { ContainerCli, ContainerCreateOptions, ContainerExecOptions } from '../cli/containerCli';
-import { AppleContainerError, ErrorCode, toAppleContainerError } from '../core/errors';
-import { SshManager } from './sshManager';
-import { log, logError, logInfo, logWarn } from '../core/logger';
-import { AUTO_STOP_SCRIPT } from '../scripts/autoStopMonitor';
+import {
+  ContainerCli,
+  ContainerCreateOptions,
+  ContainerExecOptions,
+} from "../cli/containerCli";
+import {
+  AppleContainerError,
+  ErrorCode,
+  toAppleContainerError,
+} from "../core/errors";
+import { SshManager } from "./sshManager";
+import { log, logError, logInfo, logWarn } from "../core/logger";
+import { AUTO_STOP_SCRIPT } from "../scripts/autoStopMonitor";
 
 type DevcontainerCommand = string | string[];
 
@@ -23,7 +31,7 @@ interface DevcontainerBuildConfig {
   os?: string;
   cpus?: number | string;
   memory?: string;
-  progress?: 'auto' | 'plain' | 'tty';
+  progress?: "auto" | "plain" | "tty";
   quiet?: boolean;
   image?: string | string[];
   additionalImageTags?: string[];
@@ -64,7 +72,7 @@ interface ResolvedBuildConfig {
   os?: string;
   cpus?: number;
   memory?: string;
-  progress?: 'auto' | 'plain' | 'tty';
+  progress?: "auto" | "plain" | "tty";
   quiet?: boolean;
   additionalOptions: string[];
   tags: string[];
@@ -109,9 +117,7 @@ interface VariableContext {
 export class DevcontainerManager implements vscode.Disposable {
   private readonly appliedState = new Map<string, ResolvedConfig>();
 
-  constructor(
-    private readonly cli: ContainerCli
-  ) { }
+  constructor(private readonly cli: ContainerCli) {}
 
   dispose(): void {
     this.appliedState.clear();
@@ -126,13 +132,17 @@ export class DevcontainerManager implements vscode.Disposable {
     const workspacePath = folder.uri.fsPath;
     const loaded = await this.loadConfig(workspacePath);
     if (!loaded) {
-      void vscode.window.showWarningMessage('No devcontainer configuration found in this workspace.');
+      void vscode.window.showWarningMessage(
+        "No devcontainer configuration found in this workspace.",
+      );
       return;
     }
 
     const resolved = this.resolveConfig(loaded.config, workspacePath);
     const containerName = resolved.name;
-    logInfo(`Applying devcontainer configuration ${path.relative(workspacePath, loaded.path)}`);
+    logInfo(
+      `Applying devcontainer configuration ${path.relative(workspacePath, loaded.path)}`,
+    );
 
     if (resolved.build) {
       await this.executeImageBuild(resolved);
@@ -145,7 +155,11 @@ export class DevcontainerManager implements vscode.Disposable {
         // Ensure it is running
         // Ensure it is running
         await this.cli.startContainer(existing.id);
-        await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for container to stabilize
+        await this.delay(
+          vscode.workspace
+            .getConfiguration("appleContainer")
+            .get<number>("cli.executionCoolDown", 3000),
+        ); // Wait for container to stabilize
 
         // We still need to ensure SSH keys and config are up to date
         const sshManager = new SshManager();
@@ -155,26 +169,38 @@ export class DevcontainerManager implements vscode.Disposable {
         await this.injectSshKey(existing.id, sshKey, resolved.remoteUser);
 
         // Update config
-        const sshPort = this.detectForwardedPort(resolved.ports, 22) ?? '2222';
-        await sshManager.updateConfig(containerName, sshPort, resolved.remoteUser);
+        const sshPort = this.detectForwardedPort(resolved.ports, 22) ?? "2222";
+        await sshManager.updateConfig(
+          containerName,
+          sshPort,
+          resolved.remoteUser,
+        );
 
         // Ensure auto-stop monitor is running (if enabled)
         await this.injectAutoStopScript(existing.id, resolved.remoteUser);
 
         await this.runPostCommands(existing.id, resolved, {
           runCreate: Boolean(resolved.postCreateCommand),
-          runStart: Boolean(resolved.postStartCommand)
+          runStart: Boolean(resolved.postStartCommand),
         });
 
-        void vscode.window.showInformationMessage(`Devcontainer ${containerName} is ready (reused).`);
+        void vscode.window.showInformationMessage(
+          `Devcontainer ${containerName} is ready (reused).`,
+        );
         return;
       }
 
-      logInfo(`Existing container ${containerName} detected (${existing.id}); preparing to rebuild.`);
+      logInfo(
+        `Existing container ${containerName} detected (${existing.id}); preparing to rebuild.`,
+      );
       await this.stopContainerIfRunning(existing.id, containerName);
       await this.stopContainerIfRunning(existing.id, containerName);
       await this.removeContainer(existing.id, containerName);
-      await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for cleanup
+      await this.delay(
+        vscode.workspace
+          .getConfiguration("appleContainer")
+          .get<number>("cli.executionCoolDown", 3000),
+      ); // Wait for cleanup
     }
 
     const sshManager = new SshManager();
@@ -190,25 +216,43 @@ export class DevcontainerManager implements vscode.Disposable {
 
     try {
       await this.cli.createContainer(createOptions);
-      await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for creation to complete
-      logInfo(`Container ${containerName} created from devcontainer configuration.`);
+      await this.delay(
+        vscode.workspace
+          .getConfiguration("appleContainer")
+          .get<number>("cli.executionCoolDown", 3000),
+      ); // Wait for creation to complete
+      logInfo(
+        `Container ${containerName} created from devcontainer configuration.`,
+      );
     } catch (error) {
       const err = toAppleContainerError(error);
-      if (err.message.includes('exists')) {
-        logWarn(`Container ${containerName} name collision detected. Stale/Zombie container likely exists. Removing and recreating to ensure fresh config.`);
+      if (err.message.includes("exists")) {
+        logWarn(
+          `Container ${containerName} name collision detected. Stale/Zombie container likely exists. Removing and recreating to ensure fresh config.`,
+        );
         try {
           // Force remove the conflicting container name/id
           // Force remove the conflicting container name/id
           await this.removeContainer(containerName, containerName);
-          await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for removal
+          await this.delay(
+            vscode.workspace
+              .getConfiguration("appleContainer")
+              .get<number>("cli.executionCoolDown", 3000),
+          ); // Wait for removal
         } catch (rmError) {
-          logWarn(`Attempt to remove conflicting container ${containerName} failed: ${rmError}`);
+          logWarn(
+            `Attempt to remove conflicting container ${containerName} failed: ${rmError}`,
+          );
           // Proceed to try creation again anyway, though it might fail again if not removed
         }
         // Retry creation
         // Retry creation
         await this.cli.createContainer(createOptions);
-        await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for creation to complete
+        await this.delay(
+          vscode.workspace
+            .getConfiguration("appleContainer")
+            .get<number>("cli.executionCoolDown", 3000),
+        ); // Wait for creation to complete
         logInfo(`Container ${containerName} recreated successfully.`);
       } else {
         throw err;
@@ -217,7 +261,9 @@ export class DevcontainerManager implements vscode.Disposable {
 
     const created = await this.waitForContainer(containerName, 5_000);
     if (!created) {
-      logWarn(`Container ${containerName} not visible after creation; post commands will be skipped.`);
+      logWarn(
+        `Container ${containerName} not visible after creation; post commands will be skipped.`,
+      );
       return;
     }
 
@@ -229,72 +275,99 @@ export class DevcontainerManager implements vscode.Disposable {
     // BUT if we caught "exists", it might be stopped.
     // So ensuring start is good.
     await this.cli.startContainer(created.id ?? containerName);
-    await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for startup
+    await this.delay(
+      vscode.workspace
+        .getConfiguration("appleContainer")
+        .get<number>("cli.executionCoolDown", 3000),
+    ); // Wait for startup
 
     // Inject SSH key immediately after container is waiting
-    await this.injectSshKey(created.id ?? containerName, sshKey, resolved.remoteUser);
+    await this.injectSshKey(
+      created.id ?? containerName,
+      sshKey,
+      resolved.remoteUser,
+    );
 
     this.appliedState.set(folder.uri.toString(), resolved);
 
     // Update Local SSH Config
-    const sshPort = this.detectForwardedPort(resolved.ports, 22) ?? '2222'; // Default fallback or error?
+    const sshPort = this.detectForwardedPort(resolved.ports, 22) ?? "2222"; // Default fallback or error?
     await sshManager.updateConfig(containerName, sshPort, resolved.remoteUser);
 
     // Inject and start auto-stop monitor
-    await this.injectAutoStopScript(created.id ?? containerName, resolved.remoteUser);
+    await this.injectAutoStopScript(
+      created.id ?? containerName,
+      resolved.remoteUser,
+    );
 
     await this.runPostCommands(created.id ?? containerName, resolved, {
       runCreate: Boolean(resolved.postCreateCommand),
-      runStart: Boolean(resolved.postStartCommand)
+      runStart: Boolean(resolved.postStartCommand),
     });
 
-    void vscode.window.showInformationMessage(`Devcontainer ${containerName} is ready.`);
+    void vscode.window.showInformationMessage(
+      `Devcontainer ${containerName} is ready.`,
+    );
   }
 
-  private async injectSshKey(containerId: string, pubKey: string, user?: string): Promise<void> {
+  private async injectSshKey(
+    containerId: string,
+    pubKey: string,
+    user?: string,
+  ): Promise<void> {
     const execOptions: ContainerExecOptions = {
       user: user,
       tty: false,
       interactive: false,
-      timeout: 15000 // 15s timeout to prevent hanging
+      timeout: 15000, // 15s timeout to prevent hanging
     };
 
     const cmd = [
-      '/bin/sh',
-      '-c',
-      `mkdir -p ~/.ssh && echo "${pubKey}" >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`
+      "/bin/sh",
+      "-c",
+      `mkdir -p ~/.ssh && echo "${pubKey}" >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`,
     ];
 
     try {
       await this.cli.execInContainer(containerId, cmd, execOptions);
-      await this.delay(vscode.workspace.getConfiguration('appleContainer').get<number>('cli.executionCoolDown', 3000)); // Wait for key injection
-      logInfo(`Injected SSH key for ${user ?? 'default user'} in ${containerId}`);
+      await this.delay(
+        vscode.workspace
+          .getConfiguration("appleContainer")
+          .get<number>("cli.executionCoolDown", 3000),
+      ); // Wait for key injection
+      logInfo(
+        `Injected SSH key for ${user ?? "default user"} in ${containerId}`,
+      );
     } catch (e) {
       logWarn(`Failed to inject SSH key: ${e}`);
       // This might fail if the user doesn't exist yet or permissions are strict, but we try our best.
     }
-
   }
 
-  private async injectAutoStopScript(containerId: string, user?: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration('appleContainer');
-    const enabled = config.get<boolean>('autoStop.enabled', false);
+  private async injectAutoStopScript(
+    containerId: string,
+    user?: string,
+  ): Promise<void> {
+    const config = vscode.workspace.getConfiguration("appleContainer");
+    const enabled = config.get<boolean>("autoStop.enabled", false);
     if (!enabled) {
       return;
     }
 
-    const timeout = config.get<number>('autoStop.timeout', 5);
-    logInfo(`Injecting auto-stop monitor (timeout: ${timeout}m) into ${containerId}`);
+    const timeout = config.get<number>("autoStop.timeout", 5);
+    logInfo(
+      `Injecting auto-stop monitor (timeout: ${timeout}m) into ${containerId}`,
+    );
 
     const execOptions: ContainerExecOptions = {
       user,
       tty: false,
-      interactive: false
+      interactive: false,
     };
 
     // Use a heredoc to write the script, then execute it in background
     // We use a safe path in /tmp
-    const scriptPath = '/tmp/acm-auto-stop.sh';
+    const scriptPath = "/tmp/acm-auto-stop.sh";
 
     // We construct a single shell command to write and run
     // Note: We escape double quotes in the script content just in case, though it's already a JS string.
@@ -302,7 +375,7 @@ export class DevcontainerManager implements vscode.Disposable {
     // But here we want to pass a complex shell script.
     // SshManager uses: `mkdir -p ... && echo ...`
 
-    // We'll use cat with EOF. 
+    // We'll use cat with EOF.
     // IMPORTANT: The AUTO_STOP_SCRIPT variable contains the script content.
     // We need to ensure it doesn't break the shell command.
 
@@ -310,14 +383,14 @@ export class DevcontainerManager implements vscode.Disposable {
     // Let's try one big command.
 
     const cmd = [
-      '/bin/sh',
-      '-c',
+      "/bin/sh",
+      "-c",
       `cat << 'EOF' > ${scriptPath}
 ${AUTO_STOP_SCRIPT}
 EOF
 chmod +x ${scriptPath}
 nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
-`
+`,
     ];
 
     try {
@@ -341,20 +414,28 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     const workspacePath = folder.uri.fsPath;
     const loaded = await this.loadConfig(workspacePath);
     if (!loaded) {
-      void vscode.window.showWarningMessage('No devcontainer configuration found in this workspace.');
+      void vscode.window.showWarningMessage(
+        "No devcontainer configuration found in this workspace.",
+      );
       return;
     }
 
     const resolved = this.resolveConfig(loaded.config, workspacePath);
     if (!resolved.build) {
-      void vscode.window.showInformationMessage('Devcontainer configuration does not define a build section.');
+      void vscode.window.showInformationMessage(
+        "Devcontainer configuration does not define a build section.",
+      );
       return;
     }
 
-    logInfo(`Building devcontainer image from ${path.relative(workspacePath, loaded.path)}`);
+    logInfo(
+      `Building devcontainer image from ${path.relative(workspacePath, loaded.path)}`,
+    );
     await this.executeImageBuild(resolved);
     this.appliedState.set(folder.uri.toString(), resolved);
-    void vscode.window.showInformationMessage(`Devcontainer image ${resolved.image} built successfully.`);
+    void vscode.window.showInformationMessage(
+      `Devcontainer image ${resolved.image} built successfully.`,
+    );
   }
 
   async runPostLifecycle(): Promise<void> {
@@ -365,19 +446,23 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
 
     const resolved = await this.getResolvedConfig(folder);
     if (!resolved) {
-      void vscode.window.showWarningMessage('No devcontainer has been applied for this workspace yet.');
+      void vscode.window.showWarningMessage(
+        "No devcontainer has been applied for this workspace yet.",
+      );
       return;
     }
 
     const container = await this.waitForContainer(resolved.name, 3_000);
     if (!container) {
-      void vscode.window.showWarningMessage(`Container ${resolved.name} not found or not running.`);
+      void vscode.window.showWarningMessage(
+        `Container ${resolved.name} not found or not running.`,
+      );
       return;
     }
 
     await this.runPostCommands(container.id ?? resolved.name, resolved, {
       runCreate: Boolean(resolved.postCreateCommand),
-      runStart: Boolean(resolved.postStartCommand)
+      runStart: Boolean(resolved.postStartCommand),
     });
   }
 
@@ -389,28 +474,38 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
 
     const resolved = await this.getResolvedConfig(folder);
     if (!resolved) {
-      void vscode.window.showWarningMessage('Apply a devcontainer before attempting to open it.');
+      void vscode.window.showWarningMessage(
+        "Apply a devcontainer before attempting to open it.",
+      );
       return;
     }
 
     const sshPort = this.detectForwardedPort(resolved.ports, 22);
     const messageLines = [
       `Container: ${resolved.name}`,
-      `Remote user: ${resolved.remoteUser ?? 'default (root or container default)'}`,
+      `Remote user: ${resolved.remoteUser ?? "default (root or container default)"}`,
       `Workspace folder: ${resolved.workspaceFolder}`,
-      sshPort ? `Forwarded SSH port: ${sshPort}` : 'Configure port forwarding for SSH (22) in devcontainer.json.'
+      sshPort
+        ? `Forwarded SSH port: ${sshPort}`
+        : "Configure port forwarding for SSH (22) in devcontainer.json.",
     ];
 
-    const copyItem = 'Copy Instructions';
-    const openSSHDocs = 'View Remote-SSH Guide';
-    void vscode.window.showInformationMessage(messageLines.join('\n'), copyItem, openSSHDocs).then(selection => {
-      if (selection === copyItem) {
-        void vscode.env.clipboard.writeText(messageLines.join('\n'));
-        void vscode.window.showInformationMessage('Devcontainer connection details copied to clipboard.');
-      } else if (selection === openSSHDocs) {
-        void vscode.env.openExternal(vscode.Uri.parse('https://code.visualstudio.com/docs/remote/ssh'));
-      }
-    });
+    const copyItem = "Copy Instructions";
+    const openSSHDocs = "View Remote-SSH Guide";
+    void vscode.window
+      .showInformationMessage(messageLines.join("\n"), copyItem, openSSHDocs)
+      .then((selection) => {
+        if (selection === copyItem) {
+          void vscode.env.clipboard.writeText(messageLines.join("\n"));
+          void vscode.window.showInformationMessage(
+            "Devcontainer connection details copied to clipboard.",
+          );
+        } else if (selection === openSSHDocs) {
+          void vscode.env.openExternal(
+            vscode.Uri.parse("https://code.visualstudio.com/docs/remote/ssh"),
+          );
+        }
+      });
   }
 
   async reopenInContainer(): Promise<void> {
@@ -421,7 +516,9 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
 
     const loaded = await this.loadConfig(folder.uri.fsPath);
     if (!loaded) {
-      void vscode.window.showWarningMessage('No devcontainer configuration found.');
+      void vscode.window.showWarningMessage(
+        "No devcontainer configuration found.",
+      );
       return;
     }
 
@@ -439,22 +536,19 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       // Actually applyDevcontainer handles creation logic effectively.
       // But if it exists and runs, applyDevcontainer RECREATES it (destroy & create).
       // We likely want to just START it if stopped, or use it if running.
-      // For MVP, let's reuse applyDevcontainer to ensure fresh state, 
-      // OR we can implement a lighter "ensureRunning" 
+      // For MVP, let's reuse applyDevcontainer to ensure fresh state,
+      // OR we can implement a lighter "ensureRunning"
       // Let's rely on applyDevcontainer for now to guarantee state matches config.
       // But wait, "Reopen" usually implies using the existing one if valid.
-
       // Optimization: If running, just setup SSH and go.
       // Let's assume we want to ensure provisioned.
       // A safer bet for "Reopen" is to just ensure it is running and accessible.
       // But if config changed, we might want to rebuild.
       // Standard VS Code asks. We will just ensure it is running for now.
-
       // Let's allow applyDevcontainer to handle the heavy lifting of "Make sure this config is applied".
       // Ideally we check if up-to-date.
-      // For this iteration: Reuse applyDevcontainer (Destroy/Create) to be safe, 
+      // For this iteration: Reuse applyDevcontainer (Destroy/Create) to be safe,
       // but maybe we should allow "Attach" behavior later.
-
       // Actually, to make "reopen" fast, we shouldn't destroy if not needed.
       // Let's try to start it if stopped.
       // If running, good.
@@ -470,9 +564,13 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
 
     // The URI format for Remote SSH is:
     // vscode-remote://ssh-remote+<host>/<path>
-    const uri = vscode.Uri.parse(`vscode-remote://ssh-remote+${sshHost}${workdir}`);
+    const uri = vscode.Uri.parse(
+      `vscode-remote://ssh-remote+${sshHost}${workdir}`,
+    );
 
-    await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: true });
+    await vscode.commands.executeCommand("vscode.openFolder", uri, {
+      forceNewWindow: true,
+    });
   }
 
   private async executeImageBuild(resolved: ResolvedConfig): Promise<void> {
@@ -480,7 +578,9 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       return;
     }
 
-    logInfo(`Building image ${resolved.image} with ${resolved.build.tags.length} tag(s).`);
+    logInfo(
+      `Building image ${resolved.image} with ${resolved.build.tags.length} tag(s).`,
+    );
     try {
       await this.cli.buildImage({
         context: resolved.build.context,
@@ -498,42 +598,64 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
         quiet: resolved.build.quiet,
         progress: resolved.build.progress,
         additionalOptions: resolved.build.additionalOptions,
-        cwd: resolved.workspacePath
+        cwd: resolved.workspacePath,
       });
       logInfo(`Image build completed for ${resolved.image}`);
     } catch (error) {
       const containerError = toAppleContainerError(error);
       logError(`Image build failed for ${resolved.name}`, containerError);
-      throw new AppleContainerError(`Image build failed: ${containerError.message}`, ErrorCode.CommandFailed, containerError);
+      throw new AppleContainerError(
+        `Image build failed: ${containerError.message}`,
+        ErrorCode.CommandFailed,
+        containerError,
+      );
     }
   }
 
   private async runPostCommands(
     containerId: string,
     resolved: ResolvedConfig,
-    stages: { runCreate: boolean; runStart: boolean }
+    stages: { runCreate: boolean; runStart: boolean },
   ): Promise<void> {
     if (stages.runCreate && resolved.postCreateCommand) {
       // Check for marker file to prevent re-running postCreateCommand
-      const hasRun = await this.checkMarker(containerId, 'post-create-done', resolved.remoteUser);
+      const hasRun = await this.checkMarker(
+        containerId,
+        "post-create-done",
+        resolved.remoteUser,
+      );
       if (!hasRun) {
-        await this.executeLifecycleCommand(containerId, 'postCreateCommand', resolved.postCreateCommand, resolved);
-        await this.createMarker(containerId, 'post-create-done', resolved.remoteUser);
+        await this.executeLifecycleCommand(
+          containerId,
+          "postCreateCommand",
+          resolved.postCreateCommand,
+          resolved,
+        );
+        await this.createMarker(
+          containerId,
+          "post-create-done",
+          resolved.remoteUser,
+        );
       } else {
         logInfo(`Skipping postCreateCommand for ${containerId} (already run).`);
       }
     }
 
     if (stages.runStart && resolved.postStartCommand) {
-      await this.executeLifecycleCommand(containerId, 'postStartCommand', resolved.postStartCommand, resolved);
+      await this.executeLifecycleCommand(
+        containerId,
+        "postStartCommand",
+        resolved.postStartCommand,
+        resolved,
+      );
     }
   }
 
   private async executeLifecycleCommand(
     containerId: string,
-    label: 'postCreateCommand' | 'postStartCommand',
+    label: "postCreateCommand" | "postStartCommand",
     command: DevcontainerCommand,
-    resolved: ResolvedConfig
+    resolved: ResolvedConfig,
   ): Promise<void> {
     const spec = this.prepareCommand(command);
     const execOptions: ContainerExecOptions = {
@@ -541,12 +663,16 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       workdir: resolved.workspaceFolder,
       env: resolved.containerEnv,
       tty: false,
-      interactive: false
+      interactive: false,
     };
 
     logInfo(`Executing ${label} in container ${containerId}: ${spec.display} `);
     try {
-      const { stdout, stderr } = await this.cli.execInContainer(containerId, spec.argv, execOptions);
+      const { stdout, stderr } = await this.cli.execInContainer(
+        containerId,
+        spec.argv,
+        execOptions,
+      );
       if (stdout?.trim().length) {
         log(stdout.trim());
       }
@@ -555,43 +681,58 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       }
     } catch (error) {
       const containerError = toAppleContainerError(error);
-      logError(`Failed to execute ${label} for container ${resolved.name}`, containerError);
-      throw new AppleContainerError(`Failed to run ${label}: ${containerError.message} `, ErrorCode.CommandFailed, containerError);
+      logError(
+        `Failed to execute ${label} for container ${resolved.name}`,
+        containerError,
+      );
+      throw new AppleContainerError(
+        `Failed to run ${label}: ${containerError.message} `,
+        ErrorCode.CommandFailed,
+        containerError,
+      );
     }
   }
 
-  private prepareCommand(command: DevcontainerCommand): { argv: string[]; display: string } {
+  private prepareCommand(command: DevcontainerCommand): {
+    argv: string[];
+    display: string;
+  } {
     if (Array.isArray(command)) {
       return {
         argv: command,
-        display: command.join(' ')
+        display: command.join(" "),
       };
     }
 
     const trimmed = command.trim();
     if (!trimmed.length) {
       return {
-        argv: ['/bin/sh', '-c', ''],
-        display: '(empty command)'
+        argv: ["/bin/sh", "-c", ""],
+        display: "(empty command)",
       };
     }
 
     return {
-      argv: ['/bin/sh', '-c', trimmed],
-      display: trimmed
+      argv: ["/bin/sh", "-c", trimmed],
+      display: trimmed,
     };
   }
 
-  private async waitForContainer(name: string, timeoutMs: number): Promise<{ id?: string } | undefined> {
+  private async waitForContainer(
+    name: string,
+    timeoutMs: number,
+  ): Promise<{ id?: string } | undefined> {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       const containers = await this.cli.listContainers();
-      const match = containers.find(container => container.name === name || container.id === name);
+      const match = containers.find(
+        (container) => container.name === name || container.id === name,
+      );
       if (match) {
         // Wait a bit after finding it to ensure state stabilizes, as requested by user
         // Although this is inside a read loop, ensuring we don't return too fast after it appears might help.
         // But user asked for delay after CLI ops.
-        // listContainers is the op. 
+        // listContainers is the op.
         // Let's rely on the explicit delay I will add in applyDevcontainer.
         return { id: match.id };
       }
@@ -600,7 +741,10 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     return undefined;
   }
 
-  private async stopContainerIfRunning(id: string, name: string): Promise<void> {
+  private async stopContainerIfRunning(
+    id: string,
+    name: string,
+  ): Promise<void> {
     try {
       await this.cli.stopContainer(id);
       logInfo(`Stopped container ${name} `);
@@ -615,11 +759,16 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       logInfo(`Removed container ${name}`);
     } catch (error) {
       const containerError = toAppleContainerError(error);
-      // If the container config is missing, it's a "zombie" container. We can generally consider it removed 
+      // If the container config is missing, it's a "zombie" container. We can generally consider it removed
       // (or at least we can't do anything more about it via the CLI).
       // The error typically contains "No such file or directory" or "config.json".
-      if (containerError.message.includes('No such file or directory') || containerError.message.includes('config.json')) {
-        logWarn(`Ignored removal error for likely zombie container ${name}: ${containerError.message}`);
+      if (
+        containerError.message.includes("No such file or directory") ||
+        containerError.message.includes("config.json")
+      ) {
+        logWarn(
+          `Ignored removal error for likely zombie container ${name}: ${containerError.message}`,
+        );
         return;
       }
 
@@ -631,8 +780,8 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
   private toCreateOptions(resolved: ResolvedConfig): ContainerCreateOptions {
     const additionalArgs = [...resolved.additionalArgs];
     for (const [key, value] of Object.entries(resolved.containerEnv)) {
-      if (typeof value === 'string') {
-        additionalArgs.push('--env', `${key}=${value} `);
+      if (typeof value === "string") {
+        additionalArgs.push("--env", `${key}=${value} `);
       }
     }
 
@@ -644,20 +793,26 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       ports: resolved.ports,
       volumes: resolved.volumes,
       additionalArgs,
-      command: ['sleep', 'infinity']
+      command: ["sleep", "infinity"],
     };
   }
 
-  private async findContainerByName(name: string): Promise<{ id: string } | undefined> {
+  private async findContainerByName(
+    name: string,
+  ): Promise<{ id: string } | undefined> {
     const containers = await this.cli.listContainers();
-    const match = containers.find(container => container.name === name || container.id === name);
+    const match = containers.find(
+      (container) => container.name === name || container.id === name,
+    );
     if (!match) {
       return undefined;
     }
     return { id: match.id };
   }
 
-  private async getResolvedConfig(folder: vscode.WorkspaceFolder): Promise<ResolvedConfig | undefined> {
+  private async getResolvedConfig(
+    folder: vscode.WorkspaceFolder,
+  ): Promise<ResolvedConfig | undefined> {
     const cached = this.appliedState.get(folder.uri.toString());
     if (cached) {
       return cached;
@@ -673,21 +828,23 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     return resolved;
   }
 
-  private async loadConfig(workspacePath: string): Promise<LoadedConfig | undefined> {
+  private async loadConfig(
+    workspacePath: string,
+  ): Promise<LoadedConfig | undefined> {
     const candidatePaths = [
-      path.join(workspacePath, '.appcontainer', 'devcontainer.json'),
-      path.join(workspacePath, '.appcontainer.json')
+      path.join(workspacePath, ".appcontainer", "devcontainer.json"),
+      path.join(workspacePath, ".appcontainer.json"),
     ];
 
     for (const candidate of candidatePaths) {
       try {
-        const content = await fs.readFile(candidate, 'utf8');
+        const content = await fs.readFile(candidate, "utf8");
         const config = this.parseConfig(content);
         if (config) {
           return { config, path: candidate };
         }
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
           logWarn(`Failed to read devcontainer configuration at ${candidate} `);
         }
       }
@@ -702,50 +859,69 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       const parsed = JSON.parse(sanitized) as DevcontainerConfig;
       return parsed;
     } catch (error) {
-      logError('Failed to parse devcontainer configuration', error);
+      logError("Failed to parse devcontainer configuration", error);
       return undefined;
     }
   }
 
-  private resolveConfig(config: DevcontainerConfig, workspacePath: string): ResolvedConfig {
+  private resolveConfig(
+    config: DevcontainerConfig,
+    workspacePath: string,
+  ): ResolvedConfig {
     const workspaceBasename = path.basename(workspacePath);
-    const defaultWorkspaceFolder = `/ workspaces / ${workspaceBasename} `;
+    const defaultWorkspaceFolder = `/workspaces/${workspaceBasename}`;
 
     const defaultContext: VariableContext = {
       workspaceFolder: workspacePath,
       workspaceBasename,
       containerWorkspaceFolder: defaultWorkspaceFolder,
-      env: process.env
+      env: process.env,
     };
 
     const workspaceFolderRaw = config.workspaceFolder ?? defaultWorkspaceFolder;
-    const workspaceFolder = this.resolveVariables(workspaceFolderRaw, defaultContext);
+    const workspaceFolder = this.resolveVariables(
+      workspaceFolderRaw,
+      defaultContext,
+    );
     const variableContext: VariableContext = {
       ...defaultContext,
-      containerWorkspaceFolder: workspaceFolder
+      containerWorkspaceFolder: workspaceFolder,
     };
 
     const runArgsResult = this.parseRunArgs(config.runArgs ?? []);
 
     const fallbackImage = this.generateImageTag(workspaceBasename);
-    const imageCandidate = config.image ? this.resolveVariables(config.image, variableContext) : undefined;
+    const imageCandidate = config.image
+      ? this.resolveVariables(config.image, variableContext)
+      : undefined;
     const build = config.build
-      ? this.resolveBuild(config.build, variableContext, workspacePath, imageCandidate ?? fallbackImage)
+      ? this.resolveBuild(
+          config.build,
+          variableContext,
+          workspacePath,
+          imageCandidate ?? fallbackImage,
+        )
       : undefined;
 
-    const resolvedImage = imageCandidate ?? build?.tags[0] ?? '';
+    const resolvedImage = imageCandidate ?? build?.tags[0] ?? "";
 
     if (!resolvedImage) {
-      throw new AppleContainerError('devcontainer.json must provide either an "image" or a build definition.', ErrorCode.CommandFailed);
+      throw new AppleContainerError(
+        'devcontainer.json must provide either an "image" or a build definition.',
+        ErrorCode.CommandFailed,
+      );
     }
 
     if (build && !build.tags.includes(resolvedImage)) {
       build.tags = [resolvedImage, ...build.tags];
     }
 
-    const extensionConfig = vscode.workspace.getConfiguration('appleContainer');
-    const defaultCpus = extensionConfig.get<number>('resources.defaultCpus', 4);
-    const defaultMemory = extensionConfig.get<string>('resources.defaultMemory', '8GB');
+    const extensionConfig = vscode.workspace.getConfiguration("appleContainer");
+    const defaultCpus = extensionConfig.get<number>("resources.defaultCpus", 4);
+    const defaultMemory = extensionConfig.get<string>(
+      "resources.defaultMemory",
+      "8GB",
+    );
 
     const hostReqCpus = config.hostRequirements?.cpus;
     const hostReqMemory = config.hostRequirements?.memory;
@@ -760,14 +936,19 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       workspaceFolder,
       workspacePath,
       ports: this.resolvePorts(config.forwardPorts),
-      volumes: this.resolveVolumes(config.mounts, variableContext, workspacePath, workspaceFolder),
+      volumes: this.resolveVolumes(
+        config.mounts,
+        variableContext,
+        workspacePath,
+        workspaceFolder,
+      ),
       cpus: finalCpus,
       memory: finalMemory,
       additionalArgs: runArgsResult.additional,
       containerEnv: this.resolveEnv(config.containerEnv ?? {}, variableContext),
       postCreateCommand: config.postCreateCommand,
       postStartCommand: config.postStartCommand,
-      build
+      build,
     };
 
     return resolved;
@@ -777,16 +958,18 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     if (name?.trim()) {
       return name.trim();
     }
-    return `acm - ${basename} `;
+    return `acm-${basename}`;
   }
 
   private resolveBuild(
     build: DevcontainerBuildConfig,
     context: VariableContext,
     workspacePath: string,
-    fallbackImage: string
+    fallbackImage: string,
   ): ResolvedBuildConfig {
-    const contextValue = build.context ? this.resolveVariables(build.context, context) : '.';
+    const contextValue = build.context
+      ? this.resolveVariables(build.context, context)
+      : ".";
     const contextPath = path.isAbsolute(contextValue)
       ? contextValue
       : path.resolve(workspacePath, contextValue);
@@ -802,24 +985,34 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     const args = this.resolveEnv(build.args ?? {}, context);
     const labels = this.resolveEnv(build.labels ?? {}, context);
 
-    const target = build.target ? this.resolveVariables(build.target, context) : undefined;
-    const platform = build.platform ? this.resolveVariables(build.platform, context) : undefined;
-    const arch = build.arch ? this.resolveVariables(build.arch, context) : undefined;
-    const osValue = build.os ? this.resolveVariables(build.os, context) : undefined;
-    const memory = build.memory ? this.resolveVariables(build.memory, context) : undefined;
+    const target = build.target
+      ? this.resolveVariables(build.target, context)
+      : undefined;
+    const platform = build.platform
+      ? this.resolveVariables(build.platform, context)
+      : undefined;
+    const arch = build.arch
+      ? this.resolveVariables(build.arch, context)
+      : undefined;
+    const osValue = build.os
+      ? this.resolveVariables(build.os, context)
+      : undefined;
+    const memory = build.memory
+      ? this.resolveVariables(build.memory, context)
+      : undefined;
 
     let cpus: number | undefined;
-    if (typeof build.cpus === 'number') {
+    if (typeof build.cpus === "number") {
       cpus = build.cpus;
-    } else if (typeof build.cpus === 'string') {
+    } else if (typeof build.cpus === "string") {
       const resolvedCpu = this.resolveVariables(build.cpus, context);
       const parsedCpu = Number.parseFloat(resolvedCpu);
       cpus = Number.isNaN(parsedCpu) ? undefined : parsedCpu;
     }
 
     const additionalOptions = (build.options ?? [])
-      .map(option => this.resolveVariables(option, context))
-      .filter(option => option.trim().length > 0);
+      .map((option) => this.resolveVariables(option, context))
+      .filter((option) => option.trim().length > 0);
 
     const tagSet = new Set<string>();
 
@@ -833,7 +1026,7 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       }
     };
 
-    if (typeof build.image === 'string') {
+    if (typeof build.image === "string") {
       addTag(this.resolveVariables(build.image, context));
     } else if (Array.isArray(build.image)) {
       for (const tag of build.image) {
@@ -845,7 +1038,11 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       addTag(this.resolveVariables(tag, context));
     }
 
-    addTag(fallbackImage);
+    // Only fall back to the auto-generated tag when the user
+    // has not supplied any explicit tag via build.image.
+    if (tagSet.size === 0) {
+      addTag(fallbackImage);
+    }
 
     const tags = Array.from(tagSet.values());
 
@@ -864,37 +1061,39 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       progress: build.progress,
       quiet: build.quiet,
       additionalOptions,
-      tags
+      tags,
     };
   }
 
   private generateImageTag(basename: string): string {
     const slug = basename
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    const safeSlug = slug.length > 0 ? slug : 'workspace';
-    return `acm / ${safeSlug}: dev`;
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const safeSlug = slug.length > 0 ? slug : "workspace";
+    return `acm/${safeSlug}:dev`;
   }
 
-  private resolvePorts(forwardPorts: DevcontainerConfig['forwardPorts']): string[] {
+  private resolvePorts(
+    forwardPorts: DevcontainerConfig["forwardPorts"],
+  ): string[] {
     if (!Array.isArray(forwardPorts)) {
       return [];
     }
 
     const ports = new Set<string>();
     for (const entry of forwardPorts) {
-      if (typeof entry === 'number' && Number.isFinite(entry)) {
+      if (typeof entry === "number" && Number.isFinite(entry)) {
         ports.add(`${entry}:${entry} `);
         continue;
       }
 
-      if (typeof entry === 'string') {
+      if (typeof entry === "string") {
         const trimmed = entry.trim();
         if (trimmed.length === 0) {
           continue;
         }
-        const parts = trimmed.split(':');
+        const parts = trimmed.split(":");
         if (parts.length === 1) {
           const value = parts[0];
           ports.add(`${value}:${value} `);
@@ -911,14 +1110,14 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     mounts: string[] | undefined,
     context: VariableContext,
     workspacePath: string,
-    workspaceFolder: string
-  ): ResolvedConfig['volumes'] {
-    const volumes: ResolvedConfig['volumes'] = [];
+    workspaceFolder: string,
+  ): ResolvedConfig["volumes"] {
+    const volumes: ResolvedConfig["volumes"] = [];
 
     const workspaceVolume = {
       source: workspacePath,
       target: workspaceFolder,
-      readOnly: false
+      readOnly: false,
     };
     volumes.push(workspaceVolume);
 
@@ -928,7 +1127,10 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
         continue;
       }
 
-      if (parsed.target === workspaceFolder && parsed.source === workspacePath) {
+      if (
+        parsed.target === workspaceFolder &&
+        parsed.source === workspacePath
+      ) {
         continue;
       }
 
@@ -938,29 +1140,35 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     return volumes;
   }
 
-  private parseMount(entry: string, context: VariableContext): ResolvedConfig['volumes'][number] | undefined {
+  private parseMount(
+    entry: string,
+    context: VariableContext,
+  ): ResolvedConfig["volumes"][number] | undefined {
     if (!entry?.trim()) {
       return undefined;
     }
 
-    const segments = entry.split(',').map(segment => segment.trim()).filter(Boolean);
+    const segments = entry
+      .split(",")
+      .map((segment) => segment.trim())
+      .filter(Boolean);
     let source: string | undefined;
     let target: string | undefined;
     let readOnly = false;
 
     for (const segment of segments) {
-      if (segment === 'ro') {
+      if (segment === "ro") {
         readOnly = true;
         continue;
       }
-      if (segment === 'rw') {
+      if (segment === "rw") {
         readOnly = false;
         continue;
       }
 
-      const [rawKey, rawValue] = segment.split('=', 2);
+      const [rawKey, rawValue] = segment.split("=", 2);
       const key = rawKey.trim();
-      const value = rawValue?.trim() ?? '';
+      const value = rawValue?.trim() ?? "";
 
       if (!key) {
         continue;
@@ -968,18 +1176,18 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
 
       const resolvedValue = this.resolveVariables(value, context);
       switch (key) {
-        case 'source':
-        case 'src':
+        case "source":
+        case "src":
           source = resolvedValue;
           break;
-        case 'target':
-        case 'dst':
-        case 'destination':
+        case "target":
+        case "dst":
+        case "destination":
           target = resolvedValue;
           break;
-        case 'readonly':
-        case 'ro':
-          readOnly = value === 'true' || value === '1';
+        case "readonly":
+        case "ro":
+          readOnly = value === "true" || value === "1";
           break;
         default:
           break;
@@ -993,7 +1201,10 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     return { source, target, readOnly };
   }
 
-  private resolveEnv(env: Record<string, string>, context: VariableContext): Record<string, string> {
+  private resolveEnv(
+    env: Record<string, string>,
+    context: VariableContext,
+  ): Record<string, string> {
     const resolved: Record<string, string> = {};
     for (const [key, value] of Object.entries(env)) {
       if (!key.trim()) {
@@ -1007,8 +1218,11 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
   private parseRunArgs(runArgs: string[]): RunArgsParseResult {
     const result: RunArgsParseResult = { additional: [] };
 
-    const takeValue = (arg: string, next: string | undefined): { value?: string; consumedCount: number } => {
-      const eqIndex = arg.indexOf('=');
+    const takeValue = (
+      arg: string,
+      next: string | undefined,
+    ): { value?: string; consumedCount: number } => {
+      const eqIndex = arg.indexOf("=");
       if (eqIndex > -1) {
         return { value: arg.slice(eqIndex + 1), consumedCount: 0 };
       }
@@ -1022,7 +1236,7 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       const arg = runArgs[index];
       const next = runArgs[index + 1];
       switch (arg) {
-        case '--cpus': {
+        case "--cpus": {
           const { value, consumedCount } = takeValue(arg, next);
           if (value !== undefined) {
             const parsed = Number.parseFloat(value);
@@ -1034,7 +1248,7 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
           }
           break;
         }
-        case '--memory': {
+        case "--memory": {
           const { value, consumedCount } = takeValue(arg, next);
           if (value) {
             result.memory = value;
@@ -1043,8 +1257,8 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
           }
           break;
         }
-        case '--user':
-        case '-u': {
+        case "--user":
+        case "-u": {
           const { value, consumedCount } = takeValue(arg, next);
           if (value) {
             result.user = value;
@@ -1053,9 +1267,9 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
           }
           break;
         }
-        case '--workdir':
-        case '--cwd':
-        case '-w': {
+        case "--workdir":
+        case "--cwd":
+        case "-w": {
           const { value, consumedCount } = takeValue(arg, next);
           if (value) {
             result.workdir = value;
@@ -1065,25 +1279,34 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
           break;
         }
         default: {
-          if (arg.startsWith('--cpus=') || arg.startsWith('--memory=') || arg.startsWith('--user=') || arg.startsWith('--workdir=') || arg.startsWith('--cwd=')) {
+          if (
+            arg.startsWith("--cpus=") ||
+            arg.startsWith("--memory=") ||
+            arg.startsWith("--user=") ||
+            arg.startsWith("--workdir=") ||
+            arg.startsWith("--cwd=")
+          ) {
             // handled via takeValue logic but fall-through ensures no duplicates
             const { value } = takeValue(arg, next);
-            if (arg.startsWith('--cpus=') && value !== undefined) {
+            if (arg.startsWith("--cpus=") && value !== undefined) {
               const parsed = Number.parseFloat(value);
               if (!Number.isNaN(parsed)) {
                 result.cpus = parsed;
                 continue;
               }
             }
-            if (arg.startsWith('--memory=') && value) {
+            if (arg.startsWith("--memory=") && value) {
               result.memory = value;
               continue;
             }
-            if (arg.startsWith('--user=') && value) {
+            if (arg.startsWith("--user=") && value) {
               result.user = value;
               continue;
             }
-            if ((arg.startsWith('--workdir=') || arg.startsWith('--cwd=')) && value) {
+            if (
+              (arg.startsWith("--workdir=") || arg.startsWith("--cwd=")) &&
+              value
+            ) {
               result.workdir = value;
               continue;
             }
@@ -1095,11 +1318,11 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     }
 
     if (result.workdir) {
-      result.additional.push('--workdir', result.workdir);
+      result.additional.push("--workdir", result.workdir);
     }
 
     if (result.user) {
-      result.additional.push('--user', result.user);
+      result.additional.push("--user", result.user);
     }
 
     return result;
@@ -1109,33 +1332,37 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     const pattern = /\$\{([^}]+)\}/g;
     return value.replace(pattern, (_, token: string) => {
       const trimmed = token.trim();
-      if (trimmed === 'localWorkspaceFolder') {
+      if (trimmed === "localWorkspaceFolder") {
         return context.workspaceFolder;
       }
-      if (trimmed === 'localWorkspaceFolderBasename') {
+      if (trimmed === "localWorkspaceFolderBasename") {
         return context.workspaceBasename;
       }
-      if (trimmed === 'containerWorkspaceFolder') {
+      if (trimmed === "containerWorkspaceFolder") {
         return context.containerWorkspaceFolder;
       }
-      if (trimmed.startsWith('localEnv:')) {
-        const key = trimmed.slice('localEnv:'.length);
-        return context.env[key] ?? '';
+      if (trimmed.startsWith("localEnv:")) {
+        const key = trimmed.slice("localEnv:".length);
+        return context.env[key] ?? "";
       }
-      return '';
+      return "";
     });
   }
 
   private stripJsonComments(content: string): string {
     return content
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '');
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
   }
 
-  private async pickWorkspaceFolder(): Promise<vscode.WorkspaceFolder | undefined> {
+  private async pickWorkspaceFolder(): Promise<
+    vscode.WorkspaceFolder | undefined
+  > {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders || folders.length === 0) {
-      void vscode.window.showWarningMessage('Open a workspace folder to use devcontainer commands.');
+      void vscode.window.showWarningMessage(
+        "Open a workspace folder to use devcontainer commands.",
+      );
       return undefined;
     }
 
@@ -1144,14 +1371,21 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     }
 
     const selection = await vscode.window.showWorkspaceFolderPick({
-      placeHolder: 'Select a workspace folder to apply devcontainer configuration'
+      placeHolder:
+        "Select a workspace folder to apply devcontainer configuration",
     });
     return selection ?? undefined;
   }
 
-  private detectForwardedPort(ports: string[], containerPort: number): string | undefined {
+  private detectForwardedPort(
+    ports: string[],
+    containerPort: number,
+  ): string | undefined {
     for (const spec of ports) {
-      const segments = spec.split(':').map(segment => segment.trim()).filter(Boolean);
+      const segments = spec
+        .split(":")
+        .map((segment) => segment.trim())
+        .filter(Boolean);
       if (segments.length === 2) {
         const [hostPort, container] = segments;
         if (Number.parseInt(container, 10) === containerPort) {
@@ -1168,39 +1402,51 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     return undefined;
   }
 
-  private async checkMarker(containerId: string, marker: string, user?: string): Promise<boolean> {
+  private async checkMarker(
+    containerId: string,
+    marker: string,
+    user?: string,
+  ): Promise<boolean> {
     const execOptions: ContainerExecOptions = {
       user: user,
       tty: false,
-      interactive: false
+      interactive: false,
     };
 
     // Check if marker exists in ~/.apple-container-state/
     const cmd = [
-      '/bin/sh',
-      '-c',
-      `test -f ~/.apple-container-state/${marker} && echo "yes"`
+      "/bin/sh",
+      "-c",
+      `test -f ~/.apple-container-state/${marker} && echo "yes"`,
     ];
 
     try {
-      const { stdout } = await this.cli.execInContainer(containerId, cmd, execOptions);
-      return stdout?.trim() === 'yes';
+      const { stdout } = await this.cli.execInContainer(
+        containerId,
+        cmd,
+        execOptions,
+      );
+      return stdout?.trim() === "yes";
     } catch {
       return false;
     }
   }
 
-  private async createMarker(containerId: string, marker: string, user?: string): Promise<void> {
+  private async createMarker(
+    containerId: string,
+    marker: string,
+    user?: string,
+  ): Promise<void> {
     const execOptions: ContainerExecOptions = {
       user: user,
       tty: false,
-      interactive: false
+      interactive: false,
     };
 
     const cmd = [
-      '/bin/sh',
-      '-c',
-      `mkdir -p ~/.apple-container-state && touch ~/.apple-container-state/${marker}`
+      "/bin/sh",
+      "-c",
+      `mkdir -p ~/.apple-container-state && touch ~/.apple-container-state/${marker}`,
     ];
 
     try {
@@ -1211,6 +1457,6 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

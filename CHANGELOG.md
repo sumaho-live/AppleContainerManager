@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.9.3] - 2026-06-23
+### Fixed
+- **Devcontainer Build**: Fixed a critical bug where `container build` always failed with exit code 64 when using a `build` block (Dockerfile) in `devcontainer.json`. The auto-generated fallback image tag contained stray spaces (`acm / name: dev`), producing an invalid OCI reference. Tags are now properly formatted as `acm/name:dev`.
+- **Devcontainer Build**: The fallback image tag is no longer unconditionally appended when the user supplies explicit tags via `build.image`. Users can now provide their own valid image tags as a workaround, though it is no longer necessary.
+- **Devcontainer**: Fixed stray spaces in auto-generated container names (`acm - name ` → `acm-name`) and default workspace folder paths (`/ workspaces / name ` → `/workspaces/name`).
+- **CLI Compatibility**: Updated `version()` to parse the new `container system version --format json` output, falling back to the legacy `--version` regex if JSON is unavailable.
+- **CLI Compatibility**: Updated `getSystemStatus()` to use `container system status --format json` for structured status detection, with table-parsing fallback for older CLI versions.
+- **Event Order**: Fixed a double-refresh bug where tree views were triggered twice in rapid succession during system status updates. The `system:status` event now fires after resource refresh completes.
+
+### Changed
+- **Code Quality**: Extracted duplicated log severity detection logic into a shared `inferLogSeverity()` utility in `src/core/severity.ts`, eliminating DRY violations between `containerLogs` and `logFormatter`.
+- **Code Quality**: Unified `node:` import prefix across all files (fixes inconsistent `child_process` import in `updateManager.ts`).
+- **Code Quality**: Fixed `.vscodeignore` to reference `eslint.config.mjs` instead of the stale `.eslintrc.json`.
+
+### Removed
+- **Dead Code**: Removed unused `StatusBarManager` class from `src/core/statusBar.ts`.
+- **Dead Code**: Removed unrelated `test.js` (basic HTTP server left over from development).
+
 ## [0.9.2] - 2026-04-09
 ### Added
 - **Feature**: Adapted to the latest container upgrade command `/usr/local/bin/update-container.sh`. This script is now the preferred method for upgrading the container CLI when available, supporting interactive password prompts.
@@ -183,7 +201,9 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - Initial alpha validation for the Apple `container` CLI integration and VS Code extension scaffolding.
 
-[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.1...HEAD
+[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.3...HEAD
+[0.9.3]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.2...0.9.3
+[0.9.2]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.1...0.9.2
 [0.9.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.9.1
 [0.8.5]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.5
 [0.8.4]: https://github.com/sumaho-live/AppleContainerManager/tree/0.8.4

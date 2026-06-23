@@ -108,8 +108,6 @@ Add settings in your user or workspace settings:
   "appleContainer.pollIntervalMs": 5000,
   "appleContainer.logs.showTimestamps": true,
   "appleContainer.logs.highlightKeywords": true,
-  "appleContainer.logs.showTimestamps": true,
-  "appleContainer.logs.highlightKeywords": true,
   "appleContainer.logs.minimumLevel": "info",
   "appleContainer.autoStop.enabled": false,
   "appleContainer.autoStop.timeout": 5,

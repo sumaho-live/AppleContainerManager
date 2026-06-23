@@ -1,15 +1,16 @@
-import { ChildProcessWithoutNullStreams } from 'node:child_process';
-import * as vscode from 'vscode';
+import { ChildProcessWithoutNullStreams } from "node:child_process";
+import * as vscode from "vscode";
 
-import { ContainerCli } from '../cli/containerCli';
-import { log, logError, getOutputChannel } from './logger';
-import type { LogSeverity } from './logFormatter';
+import { ContainerCli } from "../cli/containerCli";
+import { log, logError, getOutputChannel } from "./logger";
+import { inferLogSeverity } from "./severity";
+import type { LogSeverity } from "./severity";
 
 export interface ContainerLogEntry {
   containerId: string;
   timestamp: Date;
   message: string;
-  stream: 'stdout' | 'stderr';
+  stream: "stdout" | "stderr";
   severity: LogSeverity;
   plain: string;
 }
@@ -25,15 +26,16 @@ interface LogSession {
 export interface ContainerLogStateEvent {
   containerId: string;
   streaming: boolean;
-  reason?: 'stopped' | 'closed' | 'error';
+  reason?: "stopped" | "closed" | "error";
 }
 
 export class ContainerLogManager implements vscode.Disposable {
   private readonly sessions = new Map<string, LogSession>();
-  private readonly stateEmitter = new vscode.EventEmitter<ContainerLogStateEvent>();
+  private readonly stateEmitter =
+    new vscode.EventEmitter<ContainerLogStateEvent>();
   private readonly history = new Map<string, ContainerLogEntry[]>();
 
-  constructor(private readonly cli: ContainerCli) { }
+  constructor(private readonly cli: ContainerCli) {}
 
   readonly onDidChangeState = this.stateEmitter.event;
 
@@ -59,10 +61,10 @@ export class ContainerLogManager implements vscode.Disposable {
       const process = this.cli.streamContainerLogs(containerId);
       const session: LogSession = {
         process,
-        buffer: '',
+        buffer: "",
         label: label ?? containerId,
         stopping: false,
-        entries: []
+        entries: [],
       };
       this.sessions.set(containerId, session);
       this.history.set(containerId, []);
@@ -70,23 +72,29 @@ export class ContainerLogManager implements vscode.Disposable {
       log(`Started log stream for ${session.label}`);
       const output = getOutputChannel();
       output.show(true);
-      process.stdout.setEncoding('utf8');
-      process.stderr.setEncoding('utf8');
+      process.stdout.setEncoding("utf8");
+      process.stderr.setEncoding("utf8");
 
-      process.stdout.on('data', chunk => this.handleChunk(containerId, session, chunk, false));
-      process.stderr.on('data', chunk => this.handleChunk(containerId, session, chunk, true));
+      process.stdout.on("data", (chunk) =>
+        this.handleChunk(containerId, session, chunk, false),
+      );
+      process.stderr.on("data", (chunk) =>
+        this.handleChunk(containerId, session, chunk, true),
+      );
 
-      process.once('close', code => {
+      process.once("close", (code) => {
         this.flushBuffer(containerId, session);
         if (this.sessions.get(containerId) === session) {
           this.sessions.delete(containerId);
-          const reason = session.stopping ? 'stopped' : 'closed';
+          const reason = session.stopping ? "stopped" : "closed";
           this.stateEmitter.fire({ containerId, streaming: false, reason });
-          log(`Log stream ${reason} for ${session.label}${typeof code === 'number' ? ` (exit ${code})` : ''}`);
+          log(
+            `Log stream ${reason} for ${session.label}${typeof code === "number" ? ` (exit ${code})` : ""}`,
+          );
         }
       });
 
-      process.once('error', error => {
+      process.once("error", (error) => {
         logError(`Container log stream error for ${containerId}`, error);
         this.handleStreamError(containerId, session, error);
       });
@@ -94,7 +102,11 @@ export class ContainerLogManager implements vscode.Disposable {
       return true;
     } catch (error) {
       logError(`Failed to start log stream for ${containerId}`, error);
-      this.stateEmitter.fire({ containerId, streaming: false, reason: 'error' });
+      this.stateEmitter.fire({
+        containerId,
+        streaming: false,
+        reason: "error",
+      });
       return false;
     }
   }
@@ -109,7 +121,9 @@ export class ContainerLogManager implements vscode.Disposable {
     log(`Stopping log stream for ${session.label}`);
     const killed = session.process.kill();
     if (!killed) {
-      logError(`Failed to send termination signal to container log stream ${containerId}`);
+      logError(
+        `Failed to send termination signal to container log stream ${containerId}`,
+      );
       return false;
     }
 
@@ -128,9 +142,11 @@ export class ContainerLogManager implements vscode.Disposable {
       return;
     }
 
-    const content = entries.map(entry => {
-      return `[${entry.timestamp.toISOString()}] [${entry.severity.toUpperCase()}] ${entry.message}`;
-    }).join('\n');
+    const content = entries
+      .map((entry) => {
+        return `[${entry.timestamp.toISOString()}] [${entry.severity.toUpperCase()}] ${entry.message}`;
+      })
+      .join("\n");
 
     await vscode.workspace.fs.writeFile(uri, Buffer.from(content));
   }
@@ -140,10 +156,15 @@ export class ContainerLogManager implements vscode.Disposable {
     this.stateEmitter.dispose();
   }
 
-  private handleChunk(containerId: string, session: LogSession, chunk: string, isErrorStream: boolean): void {
+  private handleChunk(
+    containerId: string,
+    session: LogSession,
+    chunk: string,
+    isErrorStream: boolean,
+  ): void {
     session.buffer += chunk;
     const lines = session.buffer.split(/\r?\n/);
-    session.buffer = lines.pop() ?? '';
+    session.buffer = lines.pop() ?? "";
     for (const line of lines) {
       this.appendLogLine(containerId, session, line, isErrorStream);
     }
@@ -151,21 +172,26 @@ export class ContainerLogManager implements vscode.Disposable {
 
   private flushBuffer(containerId: string, session: LogSession): void {
     if (!session.buffer.trim()) {
-      session.buffer = '';
+      session.buffer = "";
       return;
     }
     this.appendLogLine(containerId, session, session.buffer, false);
-    session.buffer = '';
+    session.buffer = "";
   }
 
-  private appendLogLine(containerId: string, session: LogSession, line: string, isErrorStream: boolean): void {
+  private appendLogLine(
+    containerId: string,
+    session: LogSession,
+    line: string,
+    isErrorStream: boolean,
+  ): void {
     if (!line.trim()) {
       return;
     }
 
     const timestamp = new Date();
-    const severity = this.detectSeverity(line, isErrorStream);
-    const stream = isErrorStream ? 'stderr' : 'stdout';
+    const severity = inferLogSeverity(line, isErrorStream);
+    const stream = isErrorStream ? "stderr" : "stdout";
     const formattedPlain = `[${containerId}] ${line}`;
     session.entries.push({
       containerId,
@@ -173,7 +199,7 @@ export class ContainerLogManager implements vscode.Disposable {
       plain: formattedPlain,
       severity,
       stream,
-      timestamp
+      timestamp,
     });
     const historyEntries = this.history.get(containerId);
     if (historyEntries) {
@@ -183,17 +209,19 @@ export class ContainerLogManager implements vscode.Disposable {
         plain: formattedPlain,
         severity,
         stream,
-        timestamp
+        timestamp,
       });
     } else {
-      this.history.set(containerId, [{
-        containerId,
-        message: line,
-        plain: formattedPlain,
-        severity,
-        stream,
-        timestamp
-      }]);
+      this.history.set(containerId, [
+        {
+          containerId,
+          message: line,
+          plain: formattedPlain,
+          severity,
+          stream,
+          timestamp,
+        },
+      ]);
     }
 
     // Enforce history limit
@@ -209,35 +237,18 @@ export class ContainerLogManager implements vscode.Disposable {
     output.appendLine(formattedPlain);
   }
 
-  private handleStreamError(containerId: string, session: LogSession, error: unknown): void {
+  private handleStreamError(
+    containerId: string,
+    session: LogSession,
+    error: unknown,
+  ): void {
     if (this.sessions.get(containerId) !== session) {
       return;
     }
     this.sessions.delete(containerId);
-    this.stateEmitter.fire({ containerId, streaming: false, reason: 'error' });
-    log(`Log stream error for ${session.label}: ${error instanceof Error ? error.message : String(error)}`);
-  }
-
-  private detectSeverity(message: string, isErrorStream: boolean): LogSeverity {
-    if (isErrorStream) {
-      return 'error';
-    }
-    const upper = message.toUpperCase();
-    if (/\b(ERROR|FAILED|FAILURE|CRITICAL)\b/.test(upper)) {
-      return 'error';
-    }
-    if (/\b(WARN|WARNING)\b/.test(upper)) {
-      return 'warn';
-    }
-    if (/\b(SUCCESS|STARTED|RUNNING|READY|COMPLETED)\b/.test(upper)) {
-      return 'success';
-    }
-    if (/\b(INFO|INFORMATION)\b/.test(upper)) {
-      return 'info';
-    }
-    if (/\b(DEBUG|TRACE)\b/.test(upper)) {
-      return 'debug';
-    }
-    return 'unknown';
+    this.stateEmitter.fire({ containerId, streaming: false, reason: "error" });
+    log(
+      `Log stream error for ${session.label}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
