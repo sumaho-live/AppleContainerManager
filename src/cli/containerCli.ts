@@ -1626,10 +1626,17 @@ export class ContainerCli {
   private getNestedValue(source: unknown, path: string[]): unknown {
     let current: unknown = source;
     for (const segment of path) {
-      if (!this.isRecord(current)) {
+      if (Array.isArray(current)) {
+        const index = Number(segment);
+        if (Number.isNaN(index) || index < 0) {
+          return undefined;
+        }
+        current = current[index];
+      } else if (this.isRecord(current)) {
+        current = current[segment];
+      } else {
         return undefined;
       }
-      current = current[segment];
     }
     return current;
   }
