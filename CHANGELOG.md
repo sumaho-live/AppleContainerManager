@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.9.4] - 2026-06-23
+### Fixed
+- **Images View**: Fixed a regression where all images showed "unknown" for repository name. The newer `container image ls --format json` output nests the image reference under `configuration.name` rather than at the top-level `reference` field. Added support for `configuration.name`, `configuration.creationDate`, and `variants[0].size` paths.
+- **Containers View**: Fixed container status always showing "unknown" and missing resource/port/platform data. The newer `container ls --format json` output nests status under `status.state`, platform under `configuration.platform`, resources under `configuration.resources`, and ports under `configuration.publishedPorts`. All mapping paths updated with the new structure as first priority, falling back to legacy field names for backward compatibility.
+
 ## [0.9.3] - 2026-06-23
 ### Fixed
 - **Devcontainer Build**: Fixed a critical bug where `container build` always failed with exit code 64 when using a `build` block (Dockerfile) in `devcontainer.json`. The auto-generated fallback image tag contained stray spaces (`acm / name: dev`), producing an invalid OCI reference. Tags are now properly formatted as `acm/name:dev`.
@@ -201,7 +206,8 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - Initial alpha validation for the Apple `container` CLI integration and VS Code extension scaffolding.
 
-[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.3...HEAD
+[Unreleased]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.4...HEAD
+[0.9.4]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.3...0.9.4
 [0.9.3]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.2...0.9.3
 [0.9.2]: https://github.com/sumaho-live/AppleContainerManager/compare/0.9.1...0.9.2
 [0.9.1]: https://github.com/sumaho-live/AppleContainerManager/tree/0.9.1

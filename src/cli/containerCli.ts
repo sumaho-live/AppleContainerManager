@@ -999,6 +999,7 @@ export class ContainerCli {
 
     const status =
       this.firstString(
+        this.getNestedString(record, ["status", "state"]),
         record["status"],
         record["Status"],
         record["state"],
@@ -1019,7 +1020,8 @@ export class ContainerCli {
 
     const imageDetails = this.parseImageReference(imageReference);
     const ports = this.formatPortBindings(
-      record["ports"] ??
+      this.getNestedValue(record, ["configuration", "publishedPorts"]) ??
+        record["ports"] ??
         record["Ports"] ??
         record["portBindings"] ??
         record["PortBindings"] ??
@@ -1034,6 +1036,7 @@ export class ContainerCli {
     const volumes = this.extractVolumeMounts(record);
 
     const createdAt = this.firstString(
+      this.getNestedString(record, ["configuration", "creationDate"]),
       record["createdAt"],
       record["created"],
       record["CreatedAt"],
@@ -1042,6 +1045,7 @@ export class ContainerCli {
     );
 
     const cpus = this.firstString(
+      this.getNestedValue(record, ["configuration", "resources", "cpus"]),
       record["cpus"],
       record["cpu"],
       record["CPUS"],
@@ -1053,6 +1057,11 @@ export class ContainerCli {
     );
 
     const memoryRaw = this.firstDefined(
+      this.getNestedValue(record, [
+        "configuration",
+        "resources",
+        "memoryInBytes",
+      ]),
       record["memory"],
       record["Memory"],
       this.getNestedValue(record, ["resources", "memory"]),
@@ -1061,6 +1070,7 @@ export class ContainerCli {
     const memory = this.formatMaybeBytes(memoryRaw);
 
     const os = this.firstString(
+      this.getNestedString(record, ["configuration", "platform", "os"]),
       record["os"],
       record["OS"],
       record["operatingSystem"],
@@ -1070,6 +1080,11 @@ export class ContainerCli {
     );
 
     const arch = this.firstString(
+      this.getNestedString(record, [
+        "configuration",
+        "platform",
+        "architecture",
+      ]),
       record["arch"],
       record["ARCH"],
       record["architecture"],
@@ -1099,11 +1114,16 @@ export class ContainerCli {
     record: Record<string, unknown>,
     index: number,
   ): ImageSummary {
+    const configuration = this.asRecord(record["configuration"]);
+    const configDescriptor = this.asRecord(configuration?.["descriptor"]);
     const descriptor = this.asRecord(record["descriptor"]);
-    const annotations = this.asRecord(descriptor?.["annotations"]);
+    const annotations = this.asRecord(configuration?.["annotations"]);
 
     const reference = this.firstString(
+      configuration?.["name"],
       record["reference"],
+      record["name"],
+      record["Name"],
       annotations?.["io.containerd.image.name"],
       annotations?.["com.apple.containerization.image.name"],
     );
@@ -1114,18 +1134,25 @@ export class ContainerCli {
     );
 
     const id =
-      this.firstString(record["id"], record["ID"], descriptor?.["digest"]) ??
-      `image-${index}`;
+      this.firstString(
+        record["id"],
+        record["ID"],
+        configDescriptor?.["digest"],
+        descriptor?.["digest"],
+      ) ?? `image-${index}`;
 
     const createdAt = this.firstString(
+      configuration?.["creationDate"],
       record["createdAt"],
       record["CreatedAt"],
       annotations?.["org.opencontainers.image.created"],
     );
 
     const sizeRaw = this.firstDefined(
+      this.getNestedValue(record, ["variants", "0", "size"]),
       record["size"],
       record["Size"],
+      configDescriptor?.["size"],
       descriptor?.["size"],
     );
     const size = this.formatImageSize(sizeRaw);
@@ -1133,7 +1160,9 @@ export class ContainerCli {
     const digest = this.firstString(
       record["digest"],
       record["Digest"],
+      configDescriptor?.["digest"],
       descriptor?.["digest"],
+      record["id"],
     );
 
     return {
