@@ -1,6 +1,10 @@
 import * as vscode from "vscode";
 
-import { ContainerCli, ImageSummary } from "./cli/containerCli";
+import {
+  ContainerCli,
+  ImageSummary,
+  isValidDnsDomain,
+} from "./cli/containerCli";
 import { AppleContainerError, ErrorCode } from "./core/errors";
 import { events } from "./core/events";
 import { log, logError, logWarn } from "./core/logger";
@@ -90,15 +94,8 @@ export async function activate(
 
   void updateStatusBarVisibility();
 
-  const cliReady = await initializeCli(cli, containersProvider, imagesProvider);
-  if (cliReady) {
-    await handleWorkspaceAutoStart(cli);
-    await refreshSystemStatus(cli, containersProvider, imagesProvider, {
-      refreshResources: true,
-      requestedRunning: true,
-    });
-  }
-
+  // Register commands before CLI detection (which can take a while or fail)
+  // so the UI never hits "command not found".
   registerCommands(
     context,
     cli,
@@ -110,6 +107,19 @@ export async function activate(
     updateManager,
   );
   registerErrorHandler(context);
+
+  const cliReady = await initializeCli(cli, containersProvider, imagesProvider);
+  if (cliReady) {
+    try {
+      await handleWorkspaceAutoStart(cli);
+      await refreshSystemStatus(cli, containersProvider, imagesProvider, {
+        refreshResources: true,
+        requestedRunning: true,
+      });
+    } catch (error) {
+      logError("Post-activation system refresh failed", error);
+    }
+  }
 }
 
 export function deactivate(): void {}
@@ -649,6 +659,10 @@ function registerCommands(
             prompt: "Enter the DNS domain for container name resolution",
             value: "container.acm",
             placeHolder: "e.g. container.acm",
+            validateInput: (value) =>
+              !value.trim() || isValidDnsDomain(value.trim())
+                ? undefined
+                : "Use letters, digits, hyphens and dots only (e.g. container.acm).",
           });
           if (!domain?.trim()) {
             return;
@@ -690,11 +704,9 @@ function registerCommands(
           return;
         }
         const identifier = item.container.name ?? item.container.id;
-        const containerImage = item.container.image;
-        const containerName = item.container.name;
 
         const confirmation = await vscode.window.showWarningMessage(
-          `Rebuild container "${identifier}"? This will stop and recreate it with the same image.`,
+          `Rebuild container "${identifier}"? This will stop and recreate it with the same image and settings. Data not stored in a mounted volume will be lost.`,
           { modal: true },
           "Rebuild",
         );
@@ -712,6 +724,13 @@ function registerCommands(
                 cancellable: false,
               },
               async (progress) => {
+                // Capture the full configuration first; abort before
+                // destroying anything if it cannot be read.
+                progress.report({ message: "Reading container configuration..." });
+                const recreateOptions = await cli.getRecreateOptions(
+                  item.container.id,
+                );
+
                 // Stop if running
                 if (isContainerRunningStatus(item.container.status)) {
                   progress.report({ message: "Stopping container..." });
@@ -729,10 +748,7 @@ function registerCommands(
 
                 // Recreate container
                 progress.report({ message: "Creating new container..." });
-                await cli.createContainer({
-                  image: containerImage,
-                  name: containerName,
-                });
+                await cli.createContainer(recreateOptions);
               },
             );
 

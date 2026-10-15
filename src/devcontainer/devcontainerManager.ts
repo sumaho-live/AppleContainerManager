@@ -114,6 +114,9 @@ interface VariableContext {
   env: NodeJS.ProcessEnv;
 }
 
+const shellQuote = (value: string): string =>
+  `'${value.replace(/'/g, `'\\''`)}'`;
+
 export class DevcontainerManager implements vscode.Disposable {
   private readonly appliedState = new Map<string, ResolvedConfig>();
 
@@ -123,8 +126,10 @@ export class DevcontainerManager implements vscode.Disposable {
     this.appliedState.clear();
   }
 
-  async applyDevcontainer(options: { rebuild?: boolean } = {}): Promise<void> {
-    const folder = await this.pickWorkspaceFolder();
+  async applyDevcontainer(
+    options: { rebuild?: boolean; folder?: vscode.WorkspaceFolder } = {},
+  ): Promise<void> {
+    const folder = options.folder ?? (await this.pickWorkspaceFolder());
     if (!folder) {
       return;
     }
@@ -177,7 +182,7 @@ export class DevcontainerManager implements vscode.Disposable {
         );
 
         // Ensure auto-stop monitor is running (if enabled)
-        await this.injectAutoStopScript(existing.id, resolved.remoteUser);
+        await this.injectAutoStopScript(existing.id);
 
         await this.runPostCommands(existing.id, resolved, {
           runCreate: Boolean(resolved.postCreateCommand),
@@ -193,7 +198,6 @@ export class DevcontainerManager implements vscode.Disposable {
       logInfo(
         `Existing container ${containerName} detected (${existing.id}); preparing to rebuild.`,
       );
-      await this.stopContainerIfRunning(existing.id, containerName);
       await this.stopContainerIfRunning(existing.id, containerName);
       await this.removeContainer(existing.id, containerName);
       await this.delay(
@@ -295,10 +299,7 @@ export class DevcontainerManager implements vscode.Disposable {
     await sshManager.updateConfig(containerName, sshPort, resolved.remoteUser);
 
     // Inject and start auto-stop monitor
-    await this.injectAutoStopScript(
-      created.id ?? containerName,
-      resolved.remoteUser,
-    );
+    await this.injectAutoStopScript(created.id ?? containerName);
 
     await this.runPostCommands(created.id ?? containerName, resolved, {
       runCreate: Boolean(resolved.postCreateCommand),
@@ -325,7 +326,9 @@ export class DevcontainerManager implements vscode.Disposable {
     const cmd = [
       "/bin/sh",
       "-c",
-      `mkdir -p ~/.ssh && echo "${pubKey}" >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`,
+      // Only append the key when it is not already present so repeated
+      // reuse does not keep growing authorized_keys.
+      `mkdir -p ~/.ssh && touch ~/.ssh/authorized_keys && (grep -qxF ${shellQuote(pubKey)} ~/.ssh/authorized_keys || echo ${shellQuote(pubKey)} >> ~/.ssh/authorized_keys) && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`,
     ];
 
     try {
@@ -344,10 +347,7 @@ export class DevcontainerManager implements vscode.Disposable {
     }
   }
 
-  private async injectAutoStopScript(
-    containerId: string,
-    user?: string,
-  ): Promise<void> {
+  private async injectAutoStopScript(containerId: string): Promise<void> {
     const config = vscode.workspace.getConfiguration("appleContainer");
     const enabled = config.get<boolean>("autoStop.enabled", false);
     if (!enabled) {
@@ -359,8 +359,10 @@ export class DevcontainerManager implements vscode.Disposable {
       `Injecting auto-stop monitor (timeout: ${timeout}m) into ${containerId}`,
     );
 
+    // Run as root regardless of remoteUser: the monitor has to be able to
+    // power off the container, which a non-root user cannot do.
     const execOptions: ContainerExecOptions = {
-      user,
+      uid: 0,
       tty: false,
       interactive: false,
     };
@@ -525,38 +527,9 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     const resolved = this.resolveConfig(loaded.config, folder.uri.fsPath);
     const containerName = resolved.name;
 
-    // Check if container exists, if not create it
-    const existing = await this.findContainerByName(containerName);
-    if (!existing) {
-      await this.applyDevcontainer();
-    } else {
-      // Ensure it is running
-      // We can assume if it exists we might just need to start or restart it?
-      // For now, let's just make sure it's ready.
-      // Actually applyDevcontainer handles creation logic effectively.
-      // But if it exists and runs, applyDevcontainer RECREATES it (destroy & create).
-      // We likely want to just START it if stopped, or use it if running.
-      // For MVP, let's reuse applyDevcontainer to ensure fresh state,
-      // OR we can implement a lighter "ensureRunning"
-      // Let's rely on applyDevcontainer for now to guarantee state matches config.
-      // But wait, "Reopen" usually implies using the existing one if valid.
-      // Optimization: If running, just setup SSH and go.
-      // Let's assume we want to ensure provisioned.
-      // A safer bet for "Reopen" is to just ensure it is running and accessible.
-      // But if config changed, we might want to rebuild.
-      // Standard VS Code asks. We will just ensure it is running for now.
-      // Let's allow applyDevcontainer to handle the heavy lifting of "Make sure this config is applied".
-      // Ideally we check if up-to-date.
-      // For this iteration: Reuse applyDevcontainer (Destroy/Create) to be safe,
-      // but maybe we should allow "Attach" behavior later.
-      // Actually, to make "reopen" fast, we shouldn't destroy if not needed.
-      // Let's try to start it if stopped.
-      // If running, good.
-    }
-
-    // We need to ensure the container is running and SSH is ready.
-    // Let's force a "refresh/apply" to ensuring everything is consistent.
-    await this.applyDevcontainer();
+    // applyDevcontainer creates the container when missing and otherwise
+    // reuses it (start, refresh SSH key/config, run lifecycle commands).
+    await this.applyDevcontainer({ folder });
 
     // Now construct the SSH URI
     const sshHost = `acm-${containerName}`;
@@ -1349,10 +1322,67 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     });
   }
 
+  /**
+   * Converts JSONC (as used by devcontainer.json) into plain JSON: removes
+   * line and block comments outside of strings, and trailing commas.
+   */
   private stripJsonComments(content: string): string {
-    return content
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/^\s*\/\/.*$/gm, "");
+    let output = "";
+    let inString = false;
+    let index = 0;
+    while (index < content.length) {
+      const char = content[index];
+      const next = content[index + 1];
+
+      if (inString) {
+        output += char;
+        if (char === "\\") {
+          output += next ?? "";
+          index += 2;
+          continue;
+        }
+        if (char === '"') {
+          inString = false;
+        }
+        index += 1;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+        output += char;
+        index += 1;
+        continue;
+      }
+
+      if (char === "/" && next === "/") {
+        while (index < content.length && content[index] !== "\n") {
+          index += 1;
+        }
+        continue;
+      }
+
+      if (char === "/" && next === "*") {
+        const close = content.indexOf("*/", index + 2);
+        index = close === -1 ? content.length : close + 2;
+        continue;
+      }
+
+      if (char === ",") {
+        let lookahead = index + 1;
+        while (lookahead < content.length && /\s/.test(content[lookahead])) {
+          lookahead += 1;
+        }
+        if (content[lookahead] === "}" || content[lookahead] === "]") {
+          index += 1;
+          continue;
+        }
+      }
+
+      output += char;
+      index += 1;
+    }
+    return output;
   }
 
   private async pickWorkspaceFolder(): Promise<

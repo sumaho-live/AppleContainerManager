@@ -8,7 +8,8 @@ SSH_PORT="\${2:-22}"
 TIMEOUT_SECONDS=$((TIMEOUT_MINUTES * 60))
 
 # PID file to prevent multiple instances
-PIDFILE="/var/run/acm-auto-stop.pid"
+# /tmp so the monitor also works when running as a non-root remoteUser
+PIDFILE="/tmp/acm-auto-stop.pid"
 
 if [ -f "$PIDFILE" ]; then
     PID=$(cat "$PIDFILE")
@@ -40,7 +41,8 @@ while true; do
         # grep ":$SSH_PORT " matches the local address port
         CONNECTIONS=$(netstat -an | grep ":$SSH_PORT " | grep "ESTABLISHED" | wc -l)
     elif command -v ss >/dev/null 2>&1; then
-        CONNECTIONS=$(ss -tn state established "( dport = :$SSH_PORT )" | grep -v "Recv-Q" | wc -l)
+        # Inbound SSH sessions have the SSH port on the local side (sport), not dport
+        CONNECTIONS=$(ss -tn state established "( sport = :$SSH_PORT )" | grep -v "Recv-Q" | wc -l)
     else
         # Fallback: check if any sshd process is running as a child of another sshd (indicating a session)
         # This is rough but works on some systems where net tools are missing

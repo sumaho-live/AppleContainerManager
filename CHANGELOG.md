@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.9.6] - 2026-10-15
+### Fixed
+- **Auto-stop**: The SSH activity check using `ss` filtered on the remote port (`dport`) instead of the local SSH port, so active inbound sessions were never counted and containers were stopped while in use. It now filters on `sport`.
+- **Auto-stop**: The monitor now runs as root and keeps its PID file in `/tmp`, so it no longer exits silently (and can power off the container) when `remoteUser` is not root.
+- **Container Rebuild**: Rebuilding a container now recreates it with its original configuration (CPU, memory, architecture, published ports, mounts, environment, working directory and command) instead of image and name only. If the configuration cannot be read, the rebuild aborts before anything is removed.
+- **Security**: `Initialize DNS` no longer interpolates the domain into the administrator shell command. The domain is validated and passed to AppleScript as an argument with `quoted form of`.
+- **Reopen in Container**: The devcontainer was applied twice when the container did not exist yet (running `postStartCommand` twice). It is now applied once, using the already-selected workspace folder.
+- **Devcontainer Config**: `devcontainer.json` parsing now supports trailing `//` comments and trailing commas, and no longer treats `//` or `/*` inside strings as comments. Previously such files were reported as "No devcontainer configuration found".
+- **SSH**: The SSH public key is only appended to `authorized_keys` when missing, instead of on every reuse of an existing container.
+- **Activation**: Commands are registered before CLI detection, so they are available immediately, and a failed initial refresh no longer aborts activation.
+- **Updates**: `update.checkIntervalHours` values below 1 fall back to 24 hours instead of polling in a tight loop.
+- **Devcontainer Rebuild**: Removed a duplicated stop call.
+
 ## [0.9.5] - 2026-06-23
 ### Fixed
 - **Images View**: Fixed a regression where all images showed "unknown" for repository name and incorrect sizes. The newer CLI nests the image reference under `configuration.name` and sizes in `variants[0].size`. Also fixed `getNestedValue()` to traverse array indices (e.g., `variants.0.size`), which was silently failing and returning descriptor-level metadata instead of per-variant data.

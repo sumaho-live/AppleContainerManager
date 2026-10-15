@@ -100,6 +100,12 @@ export interface ContainerCreateOptions {
   command?: string[];
 }
 
+const DNS_LABEL = "[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?";
+const DNS_DOMAIN_PATTERN = new RegExp(`^${DNS_LABEL}(?:\\.${DNS_LABEL})*$`);
+
+export const isValidDnsDomain = (domain: string): boolean =>
+  domain.length <= 253 && DNS_DOMAIN_PATTERN.test(domain);
+
 export class ContainerCli {
   constructor(private readonly binary: string = "container") {}
 
@@ -171,11 +177,26 @@ export class ContainerCli {
   }
 
   async dnsCreate(domain: string): Promise<void> {
-    const cmd = `"${this.binary}" system dns create ${domain}`;
-    const script = `do shell script "${cmd}" with administrator privileges`;
-    log(`Running DNS create with admin privileges: ${cmd}`);
+    if (!isValidDnsDomain(domain)) {
+      throw new AppleContainerError(
+        `Invalid DNS domain: ${domain}`,
+        ErrorCode.CommandFailed,
+      );
+    }
+    // Binary and domain are passed as osascript argv and shell-quoted by
+    // AppleScript, so neither is ever interpreted by the root shell.
+    const scriptLines = [
+      "on run argv",
+      'do shell script (quoted form of item 1 of argv) & " system dns create " & (quoted form of item 2 of argv) with administrator privileges',
+      "end run",
+    ];
+    const args = scriptLines.flatMap((line) => ["-e", line]);
+    args.push(this.binary, domain);
+    log(
+      `Running DNS create with admin privileges: ${this.binary} system dns create ${domain}`,
+    );
     await new Promise<void>((resolve, reject) => {
-      cp.execFile("osascript", ["-e", script], (error, _stdout, stderr) => {
+      cp.execFile("osascript", args, (error, _stdout, stderr) => {
         if (error) {
           reject(
             new AppleContainerError(
@@ -205,6 +226,134 @@ export class ContainerCli {
     return containers.find(
       (c) => c.id === containerId || c.name === containerId,
     );
+  }
+
+  /**
+   * Reads a container's full configuration and converts it into create
+   * options that recreate it as-is (image, resources, ports, mounts, env,
+   * workdir and command). Throws if the configuration cannot be read, so
+   * callers can abort before destroying anything.
+   */
+  async getRecreateOptions(
+    containerId: string,
+  ): Promise<ContainerCreateOptions> {
+    const record = await this.readContainerRecord(containerId);
+    const configuration = this.asRecord(record?.["configuration"]);
+    if (!configuration) {
+      throw new AppleContainerError(
+        `Unable to read configuration for container ${containerId}`,
+        ErrorCode.CommandFailed,
+      );
+    }
+
+    const image =
+      this.getNestedString(configuration, ["image", "reference"]) ??
+      this.extractImageReference(record ?? {});
+    if (!image) {
+      throw new AppleContainerError(
+        `Unable to determine image for container ${containerId}`,
+        ErrorCode.CommandFailed,
+      );
+    }
+
+    const cpus = Number(
+      this.getNestedValue(configuration, ["resources", "cpus"]),
+    );
+    const memoryBytes = Number(
+      this.getNestedValue(configuration, ["resources", "memoryInBytes"]),
+    );
+
+    const ports: string[] = [];
+    for (const binding of this.asArray(configuration["publishedPorts"]) ??
+      []) {
+      if (!this.isRecord(binding)) {
+        continue;
+      }
+      const hostPort = this.firstString(binding["hostPort"]);
+      const containerPort = this.firstString(binding["containerPort"]);
+      if (!hostPort || !containerPort) {
+        continue;
+      }
+      const hostAddress = this.firstString(binding["hostAddress"]);
+      const proto = this.firstString(binding["proto"]);
+      const prefix =
+        hostAddress && hostAddress !== "0.0.0.0" ? `${hostAddress}:` : "";
+      ports.push(
+        `${prefix}${hostPort}:${containerPort}${proto ? `/${proto}` : ""}`,
+      );
+    }
+
+    const volumes: VolumeMapping[] = [];
+    for (const mount of this.asArray(configuration["mounts"]) ?? []) {
+      if (!this.isRecord(mount)) {
+        continue;
+      }
+      const source = this.firstString(mount["source"]);
+      const target = this.firstString(mount["destination"]);
+      if (!source || !target) {
+        continue;
+      }
+      const mountOptions = this.asArray(mount["options"]) ?? [];
+      volumes.push({ source, target, readOnly: mountOptions.includes("ro") });
+    }
+
+    const initProcess = this.asRecord(configuration["initProcess"]);
+    const additionalArgs: string[] = [];
+    for (const entry of this.asArray(initProcess?.["environment"]) ?? []) {
+      if (typeof entry === "string" && entry.includes("=")) {
+        additionalArgs.push("--env", entry);
+      }
+    }
+    const workdir = this.firstString(initProcess?.["workingDirectory"]);
+    if (workdir && workdir !== "/") {
+      additionalArgs.push("--workdir", workdir);
+    }
+
+    const command = (this.asArray(initProcess?.["arguments"]) ?? []).filter(
+      (arg): arg is string => typeof arg === "string",
+    );
+
+    return {
+      image,
+      name:
+        this.firstString(configuration["id"]) ?? containerId,
+      arch: this.getNestedString(configuration, ["platform", "architecture"]),
+      cpus: Number.isFinite(cpus) && cpus > 0 ? cpus : undefined,
+      memory:
+        Number.isFinite(memoryBytes) && memoryBytes > 0
+          ? `${Math.floor(memoryBytes / (1024 * 1024))}M`
+          : undefined,
+      ports,
+      volumes,
+      additionalArgs,
+      command: command.length > 0 ? command : undefined,
+    };
+  }
+
+  private async readContainerRecord(
+    containerId: string,
+  ): Promise<Record<string, unknown> | undefined> {
+    const matches = (record: Record<string, unknown>): boolean =>
+      this.getNestedString(record, ["configuration", "id"]) === containerId;
+
+    try {
+      const { stdout } = await this.exec(["inspect", containerId]);
+      const records = this.normalizeJsonRecords(
+        this.safeJsonParse<unknown>(stdout),
+      );
+      const found = records?.find(matches) ?? records?.[0];
+      if (found) {
+        return found;
+      }
+    } catch (error) {
+      logWarn(`container inspect failed for ${containerId}: ${error}`);
+    }
+
+    const { stdout } = await this.exec(["ls", "-a", "--format", "json"]);
+    return this.normalizeJsonRecords(
+      this.safeJsonParse<unknown>(stdout),
+      "containers",
+    )?.find(matches);
   }
 
   async getSystemStatus(): Promise<boolean | undefined> {

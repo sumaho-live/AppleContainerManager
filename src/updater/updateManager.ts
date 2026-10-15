@@ -21,7 +21,12 @@ export class UpdateManager implements vscode.Disposable {
 
   private startScheduler(): void {
     const config = vscode.workspace.getConfiguration("appleContainer");
-    const intervalHours = config.get<number>("update.checkIntervalHours") ?? 24;
+    const configuredHours = config.get<number>("update.checkIntervalHours") ?? 24;
+    // Guard against 0/negative/NaN, which would turn setInterval into a busy loop.
+    const intervalHours =
+      Number.isFinite(configuredHours) && configuredHours >= 1
+        ? configuredHours
+        : 24;
     const intervalMs = intervalHours * 60 * 60 * 1000;
 
     this.check(); // Check immediately on startup
