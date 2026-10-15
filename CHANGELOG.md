@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 - No unreleased changes.
 
+## [0.9.7] - 2026-10-15
+### Fixed
+- **Devcontainer Build**: `build.dockerfile` and `build.context` are now resolved relative to the folder containing `devcontainer.json`, as the devcontainer spec defines. Previously the context was resolved against the workspace root and the Dockerfile against the context, so a Dockerfile next to `.appcontainer/devcontainer.json` (`"dockerfile": "Dockerfile"`) was looked up at the workspace root and the build failed. Existing configurations that rely on the old workspace-root layout keep working: when the Dockerfile only exists there, it is used and a deprecation warning is logged.
+- **Devcontainer Build**: When the Dockerfile cannot be found, the build now stops with a clear `Dockerfile not found: <path>` error instead of a failing `container build` call. `build.dockerfile` defaults to `Dockerfile` when omitted.
+
 ## [0.9.6] - 2026-10-15
 ### Fixed
 - **Auto-stop**: The SSH activity check using `ss` filtered on the remote port (`dport`) instead of the local SSH port, so active inbound sessions were never counted and containers were stopped while in use. It now filters on `sport`.

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "node:path";
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs } from "node:fs";
 
 import {
   ContainerCli,
@@ -143,7 +143,7 @@ export class DevcontainerManager implements vscode.Disposable {
       return;
     }
 
-    const resolved = this.resolveConfig(loaded.config, workspacePath);
+    const resolved = this.resolveConfig(loaded, workspacePath);
     const containerName = resolved.name;
     logInfo(
       `Applying devcontainer configuration ${path.relative(workspacePath, loaded.path)}`,
@@ -422,7 +422,7 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       return;
     }
 
-    const resolved = this.resolveConfig(loaded.config, workspacePath);
+    const resolved = this.resolveConfig(loaded, workspacePath);
     if (!resolved.build) {
       void vscode.window.showInformationMessage(
         "Devcontainer configuration does not define a build section.",
@@ -524,7 +524,7 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       return;
     }
 
-    const resolved = this.resolveConfig(loaded.config, folder.uri.fsPath);
+    const resolved = this.resolveConfig(loaded, folder.uri.fsPath);
     const containerName = resolved.name;
 
     // applyDevcontainer creates the container when missing and otherwise
@@ -549,6 +549,13 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
   private async executeImageBuild(resolved: ResolvedConfig): Promise<void> {
     if (!resolved.build) {
       return;
+    }
+
+    if (resolved.build.dockerfile && !existsSync(resolved.build.dockerfile)) {
+      throw new AppleContainerError(
+        `Dockerfile not found: ${resolved.build.dockerfile}. build.dockerfile is resolved relative to devcontainer.json.`,
+        ErrorCode.CommandFailed,
+      );
     }
 
     logInfo(
@@ -796,7 +803,7 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       return undefined;
     }
 
-    const resolved = this.resolveConfig(loaded.config, folder.uri.fsPath);
+    const resolved = this.resolveConfig(loaded, folder.uri.fsPath);
     this.appliedState.set(folder.uri.toString(), resolved);
     return resolved;
   }
@@ -838,9 +845,10 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
   }
 
   private resolveConfig(
-    config: DevcontainerConfig,
+    loaded: LoadedConfig,
     workspacePath: string,
   ): ResolvedConfig {
+    const config = loaded.config;
     const workspaceBasename = path.basename(workspacePath);
     const defaultWorkspaceFolder = `/workspaces/${workspaceBasename}`;
 
@@ -872,6 +880,7 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
           config.build,
           variableContext,
           workspacePath,
+          path.dirname(loaded.path),
           imageCandidate ?? fallbackImage,
         )
       : undefined;
@@ -938,22 +947,22 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
     build: DevcontainerBuildConfig,
     context: VariableContext,
     workspacePath: string,
+    configDir: string,
     fallbackImage: string,
   ): ResolvedBuildConfig {
     const contextValue = build.context
       ? this.resolveVariables(build.context, context)
       : ".";
-    const contextPath = path.isAbsolute(contextValue)
-      ? contextValue
-      : path.resolve(workspacePath, contextValue);
-
-    let dockerfilePath: string | undefined;
-    if (build.dockerfile) {
-      const dockerfileValue = this.resolveVariables(build.dockerfile, context);
-      dockerfilePath = path.isAbsolute(dockerfileValue)
-        ? dockerfileValue
-        : path.resolve(contextPath, dockerfileValue);
-    }
+    const dockerfileValue = this.resolveVariables(
+      build.dockerfile ?? "Dockerfile",
+      context,
+    );
+    const { contextPath, dockerfilePath } = this.resolveBuildPaths(
+      contextValue,
+      dockerfileValue,
+      workspacePath,
+      configDir,
+    );
 
     const args = this.resolveEnv(build.args ?? {}, context);
     const labels = this.resolveEnv(build.labels ?? {}, context);
@@ -1036,6 +1045,37 @@ nohup ${scriptPath} ${timeout} 22 >/dev/null 2>&1 &
       additionalOptions,
       tags,
     };
+  }
+
+  /**
+   * Per the devcontainer spec, build.context and build.dockerfile are both
+   * relative to the folder containing devcontainer.json. Versions <= 0.9.6
+   * resolved context against the workspace root and dockerfile against the
+   * context; that layout is still used when only it has a Dockerfile, so
+   * existing configurations keep building.
+   */
+  private resolveBuildPaths(
+    contextValue: string,
+    dockerfileValue: string,
+    workspacePath: string,
+    configDir: string,
+  ): { contextPath: string; dockerfilePath: string } {
+    const specContext = path.resolve(configDir, contextValue);
+    const specDockerfile = path.resolve(configDir, dockerfileValue);
+    if (existsSync(specDockerfile)) {
+      return { contextPath: specContext, dockerfilePath: specDockerfile };
+    }
+
+    const legacyContext = path.resolve(workspacePath, contextValue);
+    const legacyDockerfile = path.resolve(legacyContext, dockerfileValue);
+    if (legacyDockerfile !== specDockerfile && existsSync(legacyDockerfile)) {
+      logWarn(
+        `Dockerfile not found at ${specDockerfile}; using ${legacyDockerfile} (paths relative to the workspace root are deprecated, make build.dockerfile and build.context relative to devcontainer.json).`,
+      );
+      return { contextPath: legacyContext, dockerfilePath: legacyDockerfile };
+    }
+
+    return { contextPath: specContext, dockerfilePath: specDockerfile };
   }
 
   private generateImageTag(basename: string): string {
